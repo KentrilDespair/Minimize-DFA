@@ -23,7 +23,7 @@ main = do
     --let dfa = DFA [1,2,3] "abc" 1 [3] [(1,'a',2),(2,'b',3),(2,'c',1)]
     let dfa = read contents :: DFA
     putStrLn ("Contents:\n" ++ contents)
-    mapM putStrLn (["Args:"] ++ args)
+    mapM putStrLn (["Args:"] ++ args ++ ["-----------------"])
     print dfa
 
 
