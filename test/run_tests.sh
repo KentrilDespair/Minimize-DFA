@@ -34,8 +34,13 @@ fi
 # Directory of tests same as the script's
 DIR=$(dirname "$0")
 
-## Names of tests, to assure the order
-declare -a tests=("test0" "test1" "test2" "test3" "test4" "test5")
+## Names of tests, to assure the right order
+declare -a tests=(
+    "test0" "test1" "test2" "test3" "test4" "test5" "test6" "test7" "test8" "test9"
+    "test10" "test11" "test12" "test13" "test14" "test15" "test16" "test17" "test18"
+    "test19" "test20" "test21" "test22" "test23" "test24" "test25" "test26" "test27"
+    "test28" "test29" 
+)
 
 # For each test define:
 # Error code, argument and description
@@ -43,43 +48,38 @@ declare -A params=( ["${tests[0]}"]="$OK -t Minimization of the reference DFA"
                     ["${tests[1]}"]="$OK -i Representation of the reference DFA"
                     ["${tests[2]}"]="$OK -t Minimization of the assignment DFA"
                     ["${tests[3]}"]="$OK -i Representation of the assignment DFA"
-                    ["${tests[4]}"]="$OK -i No transitions"
-                    ["${tests[5]}"]="$OK -i Empty final states"
-                    #["test6"]="$OK -i Empty final states"
-                    #["test3"]="-i $OK No transitions"
-                    #["test4"]="-i $OK Empty final states"
-                    #["test5"]="-i $ERR No states"
-                    #["test6"]="-i $ERR State as word"
-                    #["test7"]="-i $ERR State as negative"
-                    #["test8"]="-i $ERR State as float"
-                    #["test9"]="-i $ERR States not separated"
-                    #["test10"]="-i $ERR States separated using blanks"
-                    #["test11"]="-i $ERR States no newline"
-                    #["test12"]="-i $ERR States wrong ending"
-                    #["test13"]="-i $ERR No alphabet"
-                    #["test14"]="-i $ERR Alphabet uppercase"
-                    #["test15"]="-i $ERR Alphabet Ints"
-                    #["test16"]="-i $ERR Alphabet separated"
-                    #["test17"]="-i $ERR Alphabet unicode"
-                    #["test18"]="-i $ERR No initial state"
-                    #["test19"]="-i $ERR Initial state not in states"
-                    #["test20"]="-i $ERR Initial state as word"
-                    #["test21"]="-i $ERR Initial states"
-                    #["test22"]="-i $ERR Initial state as negative"
-                    #["test23"]="-i $ERR Final state not in states"
-                    #["test24"]="-i $ERR Final state as word"
-                    #["test25"]="-i $ERR Final states wrong separated"
-                    #["test26"]="-i $ERR Final state negative"
-                    #["test27"]="-i $ERR Transition src not in states"
-                    #["test28"]="-i $ERR Transition dst not in states"
-                    #["test29"]="-i $ERR Transition symbol not in alphabet"
-                    #["test30"]="-i $OK Duplicate transition"
-                    #["test31"]="-i $ERR NFA transitions"
-                    #["test32"]="-i $ERR Transitions wrong seperator"
-                    #["test33"]="-i $ERR No final state only comma"
-                    #["test34"]="-i $ERR More newlines at the end"
-                    #["test35"]="-i $OK Duplicit states"
-                    #["test36"]="-i $OK Duplicit alphabet symbols"
+                    # States
+                    ["${tests[4]}"]="$ERR -i States: empty, missing"
+                    ["${tests[5]}"]="$ERR -i States: incorrect formatting"
+                    ["${tests[6]}"]="$ERR -i States: incorrect syntax"
+                    ["${tests[7]}"]="$OK -i States: duplicate states"
+                    # Alphabet
+                    ["${tests[8]}"]="$ERR -i Alphabet: empty, missing"
+                    ["${tests[9]}"]="$ERR -i Alphabet: incorrect formatting"
+                    ["${tests[10]}"]="$ERR -i Alphabet: incorrect syntax of symbols"
+                    ["${tests[11]}"]="$OK -i Alphabet: duplicate symbols"
+                    # Initial state
+                    ["${tests[12]}"]="$ERR -i Initial state: missing"
+                    ["${tests[13]}"]="$ERR -i Initial state: not in states"
+                    ["${tests[14]}"]="$ERR -i Initial state: incorrect syntax"
+                    ["${tests[15]}"]="$ERR -i Initial state: multiple"
+                    # Final states
+                    ["${tests[16]}"]="$ERR -i Final states: not in states"
+                    ["${tests[17]}"]="$ERR -i Final states: incorrect syntax"
+                    ["${tests[18]}"]="$ERR -i Final states: incorrect formatting"
+                    ["${tests[19]}"]="$OK -i Final states: empty"
+                    ["${tests[20]}"]="$OK -i Final states: duplicate states"
+                    # Transition rules
+                    ["${tests[21]}"]="$ERR -i Transition rules: src states not in states"
+                    ["${tests[22]}"]="$ERR -i Transition rules: dst states not in states"
+                    ["${tests[23]}"]="$ERR -i Transition rules: symbols not in alphabet"
+                    ["${tests[24]}"]="$ERR -i Transition rules: incorrect formatting"
+                    ["${tests[25]}"]="$ERR -i Transition rules: incorrect syntax"
+                    ["${tests[26]}"]="$OK -i Transition rules: empty"
+                    ["${tests[27]}"]="$OK -i Transition rules: duplicate"
+                    # Mix
+                    ["${tests[28]}"]="$ERR -i Nondeterministic Finite Automata"
+                    ["${tests[29]}"]="$ERR -i Newlines at the end of the file"
 )
 
 # Counters for statistics
@@ -89,9 +89,9 @@ total_err=0
 
 
 handle_err() {
-    echo -e "\e[31mERR\t$t: $desc"
-    echo "\t./$BIN $arg < $TIN > $OUT"
-    echo "\tReturned: $RET, should be: $code"
+    echo -e "\e[31mERR\e[39m $t: $desc"
+    echo -e "    $BIN $arg < $TIN > $OUT"
+    echo -e "\tReturned: $RET, should be: $code"
 
     ((total_err+=1))
     ((total+=1))
@@ -100,7 +100,7 @@ handle_err() {
 handle_not_matching() {
     echo -e "\e[31mERR\e[39m $t: $desc"
     echo -e "    $BIN $arg < $TIN > $OUT"
-    echo -e "\tOutput $TOUT and $OUT not matching"
+    echo -e "\tOutputs NOT MATCHING: $TOUT $OUT"
 
     ((total_err+=1))
     ((total+=1))

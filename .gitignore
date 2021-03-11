@@ -1,5 +1,6 @@
 dka-2-mka
 *.swp
+test/*.temp
 
 dist
 dist-*

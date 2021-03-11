@@ -22,6 +22,7 @@ TEST_DIR = ./test
 #-------------------------------------------------------------------------------
 # Files
 BIN = dka-2-mka
+TEST_SC = $(TEST_DIR)/run_tests.sh
 
 MAIN = $(SRC_DIR)/Main.hs
 TYPES = $(SRC_DIR)/Types.hs
@@ -41,9 +42,9 @@ run: $(BIN)
 	./$(BIN)
 
 # TODO
-test: $(BIN)
-	./$(BIN) -i -t < $(TEST_DIR)/test0.in
+test: $(BIN) $(TEST_SC)
+	./$(TEST_SC)
 
 clean:
-	rm $(BIN) $(SRC_DIR)/*.hi $(SRC_DIR)/*.o
+	rm $(BIN) $(SRC_DIR)/*.hi $(SRC_DIR)/*.o $(TEST_DIR)/*.temp
 
