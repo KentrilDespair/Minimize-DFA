@@ -39,7 +39,7 @@ declare -a tests=(
     "test0" "test1" "test2" "test3" "test4" "test5" "test6" "test7" "test8" "test9"
     "test10" "test11" "test12" "test13" "test14" "test15" "test16" "test17" "test18"
     "test19" "test20" "test21" "test22" "test23" "test24" "test25" "test26" "test27"
-    "test28" "test29" 
+    "test28" "test29" "test30" "test31" "test32"
 )
 
 # For each test define:
@@ -80,6 +80,9 @@ declare -A params=( ["${tests[0]}"]="$OK -t Minimization of the reference DFA"
                     # Mix
                     ["${tests[28]}"]="$ERR -i Nondeterministic Finite Automata"
                     ["${tests[29]}"]="$ERR -i Newlines at the end of the file"
+                    ["${tests[30]}"]="$ERR -a Unknown argument"
+                    ["${tests[31]}"]="$ERR    Missing arguments"
+                    ["${tests[32]}"]="$ERR -i Alphabet: unicode lower case symbol"
 )
 
 # Counters for statistics
@@ -107,7 +110,7 @@ handle_not_matching() {
 }
 
 handle_ok() {
-    echo -e "\e[32mOK\t$t: $desc"
+    echo -e "\e[32mOK\e[39m  $t: $desc"
     ((total_ok+=1))
 }
 
@@ -125,11 +128,14 @@ do
     TIN="$DIR/$t.in"
     TOUT="$DIR/$t.out"
     OUT="$DIR/$t.temp"
+    EOUT="$DIR/$t.err"
 
+    # TODO
     # Run as a file
     #./$BIN $arg $TIN
+
     # Run as an input
-    ./$BIN $arg < $TIN > $OUT
+    ./$BIN $arg < $TIN 1> $OUT 2> $EOUT
 
     # --------------------------------
     # Evaluate
@@ -139,6 +145,7 @@ do
     # On Error, no need to compare outputs
     if [ $RET -ne $code ] ; then
         handle_err
+        cat $EOUT
         continue
     fi
     # Passed
@@ -146,15 +153,18 @@ do
     # Compare outputs if the test should pass
     if [ $code -ne $ERR ] ; then
 
-        diff $TOUT $OUT &> /dev/null
-        #diff $TOUT $OUT
+        #diff $TOUT $OUT &> /dev/null
+        match=$(diff $TOUT $OUT)
         if [ $? -ne 0 ] ; then
             handle_not_matching
+            cat $EOUT
+            echo "$match"
             continue
         fi
     fi 
 
     handle_ok
+    cat $EOUT
     ((total+=1))
 done
 

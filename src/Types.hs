@@ -16,26 +16,51 @@ module Types where
 
 import Data.List (intercalate)
 
--- State of DFA as an Integer (non-negative TODO)
+-- | An error message
+type Error = String
+
+-- | State of DFA as an Integer (non-negative TODO)
 type State = Int
 
--- Symbol of the input alphabet
+-- | A finite list of states
+type States = [State]
+
+-- | Symbol of the input alphabet
 type Symbol = Char
 
--- Transition from state 'src' to state 'dst' using symbol 'symb'
+-- | A finit list of symbols
+type Alphabet = [Symbol]
+
+-- | A transition rule is a triple, i.e.:
+-- | transition from state 'src' to state 'dst' using symbol 'symb'
 type Trans = (State, Symbol, State)
 
--- Deterministic Finite Automaton consists of 
---  'states' - a finite set of states 
---  'alphabet' - a finite set of input symbols
---  'initial' - an initial state
---  'final' - a set of final states
---  'trans' - a set of transitions
-data DFA = DFA { states   :: [State]
-               , alphabet :: [Symbol]
+transRule :: State -> Symbol -> State -> Trans
+transRule p a q = (p, a, q)
+
+transSrc :: Trans -> State
+transSrc (s, _, _) = s
+
+transSymb :: Trans -> Symbol
+transSymb (_, a, _) = a
+
+transDst :: Trans -> State
+transDst (_, _, s) = s
+
+-- | A finite set of transition rules
+type TransRules = [Trans]
+
+-- | Deterministic Finite Automaton consists of 
+-- | 'states':   a finite, non-empty set of states 
+-- | 'alphabet': a finite, non-empty set of input symbols
+-- | 'initial':  an initial state
+-- | 'final':    a set of final states
+-- | 'trans':    a set of transitions
+data DFA = DFA { states   :: States
+               , alphabet :: Alphabet
                , initial  :: State
-               , final    :: [State]
-               , trans    :: [Trans]
+               , final    :: States
+               , trans    :: TransRules
                } deriving (Eq)
 
 -- Output in format:
@@ -87,7 +112,7 @@ instance Read DFA where
             init = read (inList !! 2) :: State
             final = strToList (inList !! 3) :: [State]
             trans = map readTrans (takeFrom 4 inList)
-        in (\s -> [(DFA states alpha init final trans ,"")]) s
+        in [(DFA states alpha init final trans ,"")]
 
 
 

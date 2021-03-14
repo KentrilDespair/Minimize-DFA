@@ -17,7 +17,7 @@ FLAGS = -O
 # Directories
 
 SRC_DIR = src
-TEST_DIR = ./test
+TEST_DIR = test
 
 #-------------------------------------------------------------------------------
 # Files
@@ -26,8 +26,9 @@ TEST_SC = $(TEST_DIR)/run_tests.sh
 
 MAIN = $(SRC_DIR)/Main.hs
 TYPES = $(SRC_DIR)/Types.hs
+PARSE = $(SRC_DIR)/ParseInput.hs
 
-FILES = $(MAIN) $(TYPES)
+FILES = $(MAIN) $(TYPES) $(PARSE)
 
 #-------------------------------------------------------------------------------
 # Labels
@@ -46,5 +47,6 @@ test: $(BIN) $(TEST_SC)
 	./$(TEST_SC)
 
 clean:
-	rm $(BIN) $(SRC_DIR)/*.hi $(SRC_DIR)/*.o $(TEST_DIR)/*.temp
+	rm $(BIN) $(SRC_DIR)/*.hi $(SRC_DIR)/*.o $(TEST_DIR)/*.temp 
+	   $(TEST_DIR)/*.err
 

@@ -1,6 +1,7 @@
 dka-2-mka
 *.swp
 test/*.temp
+test/*.err
 
 dist
 dist-*
