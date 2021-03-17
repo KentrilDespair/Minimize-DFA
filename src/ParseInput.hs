@@ -81,8 +81,9 @@ sepComma = char ','
 -- |    for each state:
 -- |        has deterministic transition rules
 isDFA :: DFA -> Either Error DFA
-isDFA dfa@DFA{..} = if isFA && not isNKA then Right dfa
-                                               else Left "Syntactically incorrect FA or non-deterministic"
+isDFA dfa@DFA{..} = if isFA && (not $ isNKA trans)
+        then Right dfa
+        else Left "Syntactically incorrect FA or non-deterministic"
     where 
         isFA = initial `elem` states
             && all inStates final
@@ -91,10 +92,16 @@ isDFA dfa@DFA{..} = if isFA && not isNKA then Right dfa
             && all (inStates . transDst) trans
         inStates = (`elem` states)
         inAlphabet = (`elem` alphabet)
-        isNKA = or [isTransAbiguous t trans | t <- trans]
 
-isTransAbiguous :: Trans -> TransRules -> Bool
-isTransAbiguous _ [] = False
-isTransAbiguous t (x:ts) = if isSameSrcSymb t x then True
-                                                else isTransAbiguous t ts
+isTransAmbiguous :: Trans -> TransRules -> Bool
+isTransAmbiguous _ [] = False
+isTransAmbiguous t (x:ts) = isSameSrcSymb t x || isTransAmbiguous t ts
     where isSameSrcSymb = \(q, a, _) (p, c, _) -> q == p && a == c
+
+-- | TODO
+isNKA :: TransRules -> Bool
+isNKA [] = False
+isNKA (t:ts) = isTransAmbiguous t ts || isNKA ts
+
+
+

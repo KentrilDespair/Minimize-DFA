@@ -17,6 +17,7 @@ import System.IO (readFile)
 -- TODO what is imported
 import Types
 import ParseInput
+import Minimize (minimizeDFA)
 
 usageMsg :: String
 usageMsg = unlines [
@@ -40,7 +41,7 @@ procArgs (opt:inputName) = do
     contents <- getInputContents inputName
     case opt of
         "-i" -> return (printDFA, contents)
-        "-t" -> return (minimizeDFA, contents) 
+        "-t" -> return (printMDFA, contents) 
         _    -> die "Error: Unknown option"
         -- TODO help
 
@@ -55,6 +56,6 @@ getInputContents input = do
 printDFA :: DFA -> IO ()
 printDFA = putStr . show
 
-minimizeDFA :: DFA -> IO ()
-minimizeDFA = putStr . show
+printMDFA :: DFA -> IO ()
+printMDFA = putStr . show . minimizeDFA
 
