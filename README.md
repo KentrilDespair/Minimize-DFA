@@ -47,6 +47,7 @@ option:
 4. <final states> can be empty, in that case it is just an empty line.
 5. Transition rules are considered as a finite set (duplicate transitions are 
     skipped), that can be omitted.
+6. Any number of newlines after the last transition rule is ignored.
 
 ### Output MFA
 1. <states> are sorted, from zero ascending, continously.
@@ -55,7 +56,7 @@ option:
 4. <final states> are sorted, in ascending order.
 5. Transition rules are sorted lexicographically by the "source state", and
    the "symbol used". 
-6. A "destination state" of the FIRST transition rule, can be only 0 or 1. 
+6. The "destination state" of the FIRST transition rule, can be only 0 or 1. 
    "Destination state" of any next rule, can be at most higher by 1
    than any previous (in any rule above) highest state (i.e. having the largest 
    value so far).
