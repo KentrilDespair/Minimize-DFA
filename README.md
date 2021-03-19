@@ -24,11 +24,19 @@ option:
     -t  Prints the MFA to STDOUT with the same format (syntax) as the input DFA,
         but with rules specified in Section "Output MFA".
 
+* Only one option can be specified at a time. 
 
 ## Rules
 
-### General
-1. Only one option can be specified at a time. 
+### Conversion in general
+
+1. Elimination of unreachable states
+2. Conversion to "fully defined" DFA (i.e. w/ total transition function)
+    - If the transition function is not total, then the DFA is extended
+      by a so-called "SINK" state
+3. Conversion to "reduced" DFA using equivalence theorem (classes)
+    - If a "SINK" state exists (i.e. a state that is not final, with transitions
+      only to itself), then it is removed.
 
 ### Input DFA:
 1. <states> is considered a non-empty, finite set, therefore can consist of  

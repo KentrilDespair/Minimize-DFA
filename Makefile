@@ -51,6 +51,7 @@ test: $(BIN) $(TEST_SC)
 
 unit: $(UNIT) $(TYPES) $(MIN)
 	$(GHC) $(FLAGS) -o $(BINU) $^
+	./$(BINU)
 
 clean:
 	rm $(BIN) $(SRC_DIR)/*.hi $(SRC_DIR)/*.o $(TEST_DIR)/*.temp 

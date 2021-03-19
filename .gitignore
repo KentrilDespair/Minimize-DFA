@@ -1,6 +1,7 @@
 dka-2-mka
 unitTest
 *.swp
+*.swo
 test/*.temp
 test/*.err
 
