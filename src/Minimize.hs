@@ -16,7 +16,11 @@ module Minimize where
 import Types
 
 import System.Exit (die)
-import Data.List (sort, union, intersect, nub, nubBy, (\\), delete)
+-- TODO clear from unused
+import Data.List (nub, nubBy, (\\), delete, sort)
+import qualified Data.Set as Set (
+    empty, singleton, fromList, toList, null, size, map, findMax, filter, insert,
+    member, union, unions, intersection, (\\), delete)
 
 
 -- | TODO
@@ -26,134 +30,139 @@ minimizeDFA = rmSink . toReducedDFA . toFullyDefinedDFA . rmUnreachable
 -- | ----------------------------------------------------------------------
 -- | 1. 
 -- | Removes all unreachable states
--- TODO maybe Set fromList and later toList
 rmUnreachable :: DFA -> DFA
 rmUnreachable dfa@DFA{..} = 
-        DFA reachableStates alphabet initial reachableFinal reachableTrans 
-    where reachableStates = sort $ untilNoNext [initial] [] trans
-          reachableTrans = [t | t@(q, _, _) <- trans, q `elem` reachableStates]
-          reachableFinal = final `intersect` reachableStates
+        DFA reachableStates alpha init reachableFinal reachableTrans 
+    where reachableStates = untilNoNext Set.empty (Set.singleton init) trans
+          reachableTrans  = Set.filter (\(q, _, _) -> q `Set.member` reachableStates) trans
+          reachableFinal  = final `Set.intersection` reachableStates
 
--- TODO to SET
+-- | Returns all states we can get into from the initial state
 untilNoNext :: States -> States -> TransRules -> States
 untilNoNext s_0 s_1 ts
-    | null $ s_0 \\ s_1 = s_1
-    | otherwise         = untilNoNext (s_0 `union` uniqueDsts) s_0 ts
-    where uniqueDsts = nub $ stepThrough s_0 ts
+    | s_0 == s_1 = s_1
+    | otherwise  = untilNoNext s_1 (s_1 `Set.union` possibleDests) ts
+    where possibleDests = stepThrough s_1 ts
 
 -- | For all states finds all states they can get into using any symbol
 stepThrough :: States -> TransRules -> States
-stepThrough st ts = concat [dsts | s <- st, let dsts = findDsts s ts]
-
--- | Returns all destination states we can get into from a state
--- |    using any symbol
-findDsts :: State -> TransRules -> States
-findDsts s ts = [p | (q, _, p) <- ts, q == s]
-
+stepThrough st ts = Set.map transDst $ Set.unions $ Set.map transSameSrc st
+    where transSameSrc s = Set.filter (\(q, _, p) -> q == s) ts
 
 -- | ----------------------------------------------------------------------
 -- | 2.
 -- | Converts to equivalent fully defined DFA
--- |    Checks if the transition function is total, if not then the
--- |    DFA is extended by a SINK state
+-- |    Checks if the transition function (rules) is (are) total, if not then 
+-- |    the DFA is extended by a SINK state
 toFullyDefinedDFA :: DFA -> DFA
 toFullyDefinedDFA dfa@DFA{..} = if null toSinkTrans
         then dfa
-        else DFA (states ++ [sink]) alphabet initial final totalTrans 
-    where sink = maximum states + 1
-          toSinkTrans = [(q, a, sink) | q <- states, a <- alphabet, 
-                                                    not $ existsTrans q a trans]
-          totalTrans = sort $ trans ++ toSinkTrans ++ sinkTrans
-          sinkTrans = [(sink, a, sink) | a <- alphabet]
+        else DFA (Set.insert sink states) alpha init final totalTrans 
+    where sink        = Set.findMax states + 1
+          totalTrans  = trans `Set.union` (Set.fromList $ toSinkTrans ++ sinkTrans)
+          toSinkTrans = [(q, a, sink) | q <- st, a <- al, notExistTrans q a trans]
+          sinkTrans   = [(sink, a, sink) | a <- al]
+          st          = statesList dfa
+          al          = alphaList dfa
 
--- | Whether a transition from a state using a symbol exists in transition rules
-existsTrans :: State -> Symbol -> TransRules -> Bool
-existsTrans _ _ [] = False
-existsTrans q a ((p, c, _) : ts) = (q == p && a == c) || existsTrans q a ts
+-- TODO same as find Dest
+-- | Whether transition rules from a state using a symbol not exist
+notExistTrans :: State -> Symbol -> TransRules -> Bool
+notExistTrans q a ts = Set.null $ Set.filter isSameSrcSymb ts
+    where isSameSrcSymb = \(p, c, _) -> p == q && c == a
 
 -- | ----------------------------------------------------------------------
 -- | 3. Conversion of FULLY DEFINED DFA to REDUCED DFA
--- |    where no state is unreachable, and no two states are not distinguishable
+-- |    where no state is unreachable, and no two states are indistinguishable
 -- | 
 -- | TODO
+-- | TODO PREZNACOVANI PODLE PRAVIDEL !!!
 toReducedDFA :: DFA -> DFA
-toReducedDFA dfa@DFA{..} = if length states < 2 then dfa 
-                           else DFA newStates alphabet newInit newFinal newTrans
-    where statesInRel = indistToStates $ untilIndist [] (indist0Rel states final) dfa
-          newStates   = [0..(length statesInRel -1)]
-          newInit     = stateRelIdx initial statesInRel
-          newFinal    = nub [eqF | f <- final, let eqF = stateRelIdx f statesInRel]
-          newTrans    = nub [(eqP, a, eqQ) | (p, a, q) <- trans, 
-                                let eqP = stateRelIdx p statesInRel, 
-                                let eqQ = stateRelIdx (getDest p a trans) statesInRel]
+toReducedDFA dfa@DFA{..} = if Set.size states < 2 then dfa 
+                           else DFA newStates alpha newInit newFinal newTrans
+    where statesInRel = sort $ indistToStates $ untilIndist [] [] dfa
+          newStates   = Set.fromList [0..(length statesInRel -1)]
+          newInit     = stateRelIdx init statesInRel
+          newFinal    = Set.map (\f -> stateRelIdx f statesInRel) final
+          -- newFinal    = nub [eqF | f <- final, let eqF = stateRelIdx f statesInRel]
+          newTrans    = Set.map (\(p, a, q) -> (stateRelIdx p statesInRel, a, 
+                                                     stateRelIdx (getDest p a (transList dfa)) statesInRel))
+                                     trans
+          --newTrans    = nub [(eqP, a, eqQ) | (p, a, q) <- trans, 
+          --                      let eqP = stateRelIdx p statesInRel, 
+          --                      let eqQ = stateRelIdx (getDest p a trans) statesInRel]
 
--- | Indistinguishable relation for k = 0 is a list of pairs of states.
--- |    Is an equivalence relation on states.
-indist0Rel :: States -> States -> [(State, State)]
-indist0Rel states final = concat $ map (relEquiv) [final, states \\ final]
-    where relEquiv st = [(p, q) | p <- st, q <- st]
 
--- Until all pairs of states are indistinguishable
-untilIndist :: [(State, State)] -> [(State, State)] -> DFA -> [(State, State)]
-untilIndist indist0 indist1 dfa@DFA{..} = if indist0 /= indist1 
-            then untilIndist indist1 indistK dfa
-            else indist1
-    where indistK = nextIndist indist1 alphabet trans  
-
-nextIndist :: [(State, State)] -> Alphabet -> TransRules -> [(State, State)] 
-nextIndist indistK alpha trans = [(p, q) | (p, q) <- indistK, allDestsIndist (destPairs p q alpha trans)]
+untilIndist :: [StatePair] -> [StatePair] -> DFA -> [StatePair]
+untilIndist indist0 indist1 dfa@DFA{..}
+    | null indist1       = untilIndist indist0 indistRel0 dfa
+    | indist0 /= indist1 = untilIndist indist1 indistK dfa
+    | otherwise          = indist1
+    where indistRel0  = concat $ map (relEquiv) [finalList dfa, Set.toList $ states Set.\\ final]
+          indistK     = nextIndist indist1 al ts
+          relEquiv st = [(p, q) | p <- st, q <- st]
+          al          = alphaList dfa
+          ts          = transList dfa
+        
+nextIndist :: [StatePair] -> [Symbol] -> [Trans] -> [StatePair] 
+nextIndist indistK al ts = [(p, q) | (p, q) <- indistK, allDestsIndist (destPairs p q al ts)]
     where allDestsIndist = all (`elem` indistK) 
 
-destPairs :: State -> State -> Alphabet -> TransRules -> [(State, State)]
+destPairs :: State -> State -> [Symbol] -> [Trans] -> [StatePair]
 destPairs p q al ts = [(d1, d2) | a <- al, let d1 = getDest p a ts,
                                            let d2 = getDest q a ts]
 
 -- | Returns the destination state we get into from state using symbol
 -- | expects FULLY DEFINED DFA's transition rules
-getDest :: State -> Symbol -> TransRules -> State
-getDest p a ((q, c, d) : ts) = if p == q && a == c then d
-                                                   else getDest p a ts
+-- -- TODO error or use find
+getDest :: State -> Symbol -> [Trans] -> State
+getDest p a ((q, c, d) : ts)
+    | p == q && a == c = d
+    | null ts          = error "getDest SHOULD NOT HAPPEN"
+    | otherwise        = getDest p a ts
 
 -- | Converts the pairs of indistinguishable states in the relation of equivalence
 -- |    to a list of list of states that correspond to each new state
-indistToStates :: [(State, State)] -> [States]
-indistToStates ((p, _) : indist) = equivToStates p [p] (rmSymmetry indist)
+indistToStates :: [StatePair] -> [States]
+indistToStates ((p, _) : indist) = equivToStates p (Set.singleton p) (rmSymmetry indist)
     where rmSymmetry = nubBy (\(p, q) (u, v) -> p == v && q == u)
 
 -- | 
-equivToStates :: State -> States -> [(State, State)] -> [States]
+equivToStates :: State -> States -> [StatePair] -> [States]
 equivToStates _ st [] = st : []
 equivToStates s st ((p, q) : indist)
-    | s == p    = if s /= q then equivToStates s (q : st) (rmReflexivity indist)
+    | s == p    = if s /= q then equivToStates s (Set.insert q st) (rmReflexivity indist)
                             else error "EQUIV TO STATES SHOULD NOT HAPPEN"
-    | p == q    = st : equivToStates p [p] indist
+    | p == q    = st : equivToStates p (Set.singleton p) indist
     | otherwise = error "EQUIV TO STATES SHOULD NOT HAPPEN"
     where rmReflexivity = delete (q, q)
 
 -- | Returns the index of the state in the 'states in relation list'
 -- |    where n-th list that has that state is the index (the equivalence class)
 stateRelIdx :: State -> [States] -> Int
-stateRelIdx s (st : sst) = if s `elem` st then 0 
-                                          else 1 + stateRelIdx s sst
+stateRelIdx s (st : sst) = if s `Set.member` st then 0 
+                                                else 1 + stateRelIdx s sst
 
 -- | ----------------------------------------------------------------------
 -- | 4. Remove possible SINK state
 -- |    a non-final state with transition rules only to itself
 rmSink :: DFA -> DFA
 rmSink dfa@DFA{..} = if notExistsSink then dfa
-                                      else DFA newStates alphabet initial final newTrans
-    where (sinkState, sinkRules) = findSink (states \\ final) (length alphabet) trans
-          notExistsSink = null $ sinkRules
-          newStates     = delete sinkState states
-          newTrans      = [t | t@(_, _, q) <- trans, q /= sinkState] \\ sinkRules
+                                      else DFA newStates alpha init final newTrans
+    where (sinkState, sinkRules) = findSink (Set.toList $ states Set.\\ final) (Set.size alpha) trans
+          notExistsSink = Set.null $ sinkRules
+          newStates     = Set.delete sinkState states
+          newTrans      = (Set.filter (\(_, _, q) -> q /= sinkState) trans) Set.\\ sinkRules
+          --newTrans      = [t | t@(_, _, q) <- trans, q /= sinkState] \\ sinkRules
 
 -- | Checks if a list of transition rules with the same "src" and "dest" state
 -- |    is defined for each symbol of the alphabet (has the same length
 -- |    as the alphabet)
-findSink :: States -> Int -> TransRules -> (State, TransRules)
-findSink []     _     _  = (-1, [])
-findSink (s:st) alLen tr = if length sinkRules == alLen then (s, sinkRules)
-                                                        else findSink st alLen tr
-    where sinkRules = [t | t@(p, _, q) <- tr, p == q && p == s]
+findSink :: [State] -> Int -> TransRules -> (State, TransRules)
+findSink []     _     _  = (-1, Set.empty)
+findSink (s:st) alLen tr = if Set.size sinkRules == alLen then (s, sinkRules)
+                                                          else findSink st alLen tr
+    where sinkRules = Set.filter (\(p, _, q) -> p == q && p == s) tr
+    -- where sinkRules = [t | t@(p, _, q) <- tr, p == q && p == s]
 
 

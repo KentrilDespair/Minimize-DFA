@@ -5,7 +5,7 @@
  - Author : Martin Smutny, xsmutn13
  - Date   : 03.03.2021
  -
- - Module for parsing input 
+ - Module for parsing input string into DFA representation
  ------------------------------------------------------------------------------}
 
 {-# LANGUAGE RecordWildCards #-}
@@ -14,21 +14,24 @@ module ParseInput
 ( parseDFA
 ) where
 
-import Types 
+-- TODO
 --(Error, DFA, State, States, 
              -- Alphabet, Symbol,
              -- Trans, transRule, TransRules, transSrc, transDst, transSymb)
+import Types 
 
 import Data.Char (isAsciiLower)
+import Data.Set (fromList, toList, member, isSubsetOf)
 import Text.Parsec.String (Parser)
 import Text.Parsec (parse, satisfy, newline, 
                     sepBy1, sepBy, many1, endBy,
                     digit, lower, char)
-
 import Control.Monad ((<=<))
 import Control.Arrow (left)
 
 
+-- | Converts input string to DFA. If syntactically correct then returns the DFA
+-- |    else returns an error
 parseDFA :: String -> Either Error DFA
 parseDFA = isDFA <=< left show . parse parserDFA ""
     where parserDFA = DFA <$> parseStates       <* newline
@@ -39,7 +42,7 @@ parseDFA = isDFA <=< left show . parse parserDFA ""
 
 -- | States are non-empty, finite set states separated by comma
 parseStates :: Parser States
-parseStates = parseState `sepBy1` sepComma
+parseStates = fromList <$> parseState `sepBy1` sepComma
 
 -- | State is a non-negative integer
 parseState :: Parser State
@@ -47,7 +50,7 @@ parseState = read <$> many1 digit
 
 -- | Alphabet is non-empty, finite set symbols, written in a string
 parseAlphabet :: Parser Alphabet
-parseAlphabet = many1 parseSymbol
+parseAlphabet = fromList <$> many1 parseSymbol
 
 -- | Symbol is a lower case character from a set [a-z]
 parseSymbol :: Parser Symbol
@@ -55,11 +58,11 @@ parseSymbol = satisfy isAsciiLower
 
 -- | Final states is finite set of states
 parseFinalStates :: Parser States
-parseFinalStates = parseState `sepBy` sepComma
+parseFinalStates = fromList <$> parseState `sepBy` sepComma
 
 -- | Optional finite set of transition rules
 parseTransRules :: Parser TransRules
-parseTransRules = parseTrans `endBy` newline
+parseTransRules = fromList <$> parseTrans `endBy` newline
 
 -- | Transition rule is a triple 'from State, using Symbol, to State'
 -- | each separated by comma
@@ -81,27 +84,31 @@ sepComma = char ','
 -- |    for each state:
 -- |        has deterministic transition rules
 isDFA :: DFA -> Either Error DFA
-isDFA dfa@DFA{..} = if isFA && (not $ isNKA trans)
-        then Right dfa
-        else Left "Syntactically incorrect FA or non-deterministic"
+isDFA dfa@DFA{..}
+    | not isFA    = Left "Syntactically incorrect Finite Automaton"
+    | isNotDFA    = Left "Non-deterministic Finite Automaton"
+    | otherwise   = Right dfa
     where 
-        isFA = initial `elem` states
-            && all inStates final
+        isFA = init `member` states
+            && final `isSubsetOf` states
             && all (inStates . transSrc) trans
             && all (inAlphabet . transSymb) trans
             && all (inStates . transDst) trans
-        inStates = (`elem` states)
-        inAlphabet = (`elem` alphabet)
+        inStates = (`member` states)
+        inAlphabet = (`member` alpha)
+        isNotDFA = isNFA $ toList trans
 
-isTransAmbiguous :: Trans -> TransRules -> Bool
+-- | Checks if is non deterministic FA
+isNFA :: [Trans] -> Bool
+isNFA [] = False
+isNFA (t:ts) = isTransAmbiguous t ts || isNFA ts
+
+-- | Transition is ambiguous if from the same state gets into 
+-- |    other states using the same symbol
+isTransAmbiguous :: Trans -> [Trans] -> Bool
 isTransAmbiguous _ [] = False
-isTransAmbiguous t (x:ts) = isSameSrcSymb t x || isTransAmbiguous t ts
+isTransAmbiguous x (t:ts) = isSameSrcSymb x t || isTransAmbiguous x ts
     where isSameSrcSymb = \(q, a, _) (p, c, _) -> q == p && a == c
-
--- | TODO
-isNKA :: TransRules -> Bool
-isNKA [] = False
-isNKA (t:ts) = isTransAmbiguous t ts || isNKA ts
 
 
 
