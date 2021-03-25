@@ -1,7 +1,7 @@
 # Minimize-DFA
 
 A command line program for minimization of Deterministic Finite Automaton (DFA),
-converts DFA to Minimal Finite Automaton (MFA).
+converts DFA to Minimal Finite Automaton (MFA) TODO TOTAL TODO
 
 
 ## Usage
@@ -47,7 +47,7 @@ option:
 4. <final states> can be empty, in that case it is just an empty line.
 5. Transition rules are considered as a finite set (duplicate transitions are 
     skipped), that can be omitted.
-6. Any number of newlines after the last transition rule is ignored.
+6. Any number of ending newlines is ignored.
 
 ### Output MFA
 1. <states> are sorted, from zero ascending, continously.
@@ -69,6 +69,14 @@ Neni treba odchytavat vyjimky
 ## TODO
 Add minimization tests to all OK 
 add mix
+Check that functions are fully defined
+Checck fnc args: what where
+tuples to (a,a,a)
+listss to (x:xs)
+TODO write doc - * toReduced uses table k -> v ...
+TODO SORT TRANSRULES only using src and symb!!
+31  -- TODO dfa@ not needed if not used!!
+
 
 1. Make rules:
     a. write tests
@@ -116,3 +124,4 @@ expected, no output is compared.
 *      used in cases that are not reachable, or should not happen
 
 * for bonus: well used library
+
