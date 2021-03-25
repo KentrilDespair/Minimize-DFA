@@ -14,6 +14,9 @@
 import Types
 import Minimize
 
+import qualified Data.Set as Set
+import Data.List (sort)
+
 -- =============================================================================
 -- | Setup of the data to be tested and results of the tests
 
@@ -27,20 +30,27 @@ import Minimize
 data DFASuite = DFASuite { dfa       :: DFA 
                          , reachable :: DFA
                          , fdefined  :: DFA
-                         , indistRel :: [[(State, State)]]
-                         , relStates :: [States]
+                         , indistRel :: [[StatePair]]
+                         , relStates :: [[State]]
                          , reduced   :: DFA
                          }
+
+toSetDFA :: [State] -> [Symbol] -> State -> [State] -> [Trans] -> DFA
+toSetDFA s a i f t = DFA ss as i fs ts
+    where ss = Set.fromList s
+          as = Set.fromList a
+          fs = Set.fromList f
+          ts = Set.fromList t
 
 --------------------------------------------------------------------------------
 -- | Reference DFA
 dfa0 :: DFA
-dfa0 = DFA states alpha init final trans 
+dfa0 = toSetDFA states alpha init final trans 
     where states = [1,2,3,4,5,6]
-          alpha = "ab"
-          init = 1
-          final = [1,6]
-          trans = [(1,'a',6),(1,'b',2),(2,'a',5),(2,'b',4),(3,'a',3),(3,'b',6),
+          alpha  = "ab"
+          init   = 1
+          final  = [1,6]
+          trans  = [(1,'a',6),(1,'b',2),(2,'a',5),(2,'b',4),(3,'a',3),(3,'b',6),
                    (4,'a',4),(4,'b',1),(5,'a',2),(5,'b',3),(6,'a',1),(6,'b',5)]
 
 dfa0_suite :: DFASuite
@@ -55,32 +65,69 @@ dfa0_suite = DFASuite org reach fdef indist relst reduc
                      (5,2),(5,5)],
                     [(1,1),(1,6),(6,1),(6,6), (2,2),(2,5), (3,3),(3,4), (4,3),(4,4),
                      (5,2),(5,5)]]
-          relst = [[1,6], [2,5],[3,4]]
-          reduc = DFA [0,1,2] "ab" 0 [0] [(0,'a',0),(0,'b',1),(1,'a',1),(1,'b',2),
+          relst = sort $ [[1,6], [2,5],[3,4]]
+          reduc = toSetDFA [0,1,2] 
+                      "ab"
+                      0
+                      [0] 
+                      [(0,'a',0),(0,'b',1),(1,'a',1),(1,'b',2),
                                           (2,'a',2),(2,'b',0)]
 
 --------------------------------------------------------------------------------
 -- | Assignment DFA
 dfa1 :: DFA
-dfa1 = DFA states alpha init final trans 
+dfa1 = toSetDFA states alpha init final trans 
     where states = [1,2,3]
-          alpha = "abc"
-          init = 1
-          final = [3]
-          trans = [(1,'a',3),(1,'b',2),(2,'a',2),(2,'c',3)]
+          alpha  = "abc"
+          init   = 1
+          final  = [3]
+          trans  = [(1,'a',3),(1,'b',2),(2,'a',2),(2,'c',3)]
 
 dfa1_suite :: DFASuite
 dfa1_suite = DFASuite org reach fdef indist relst reduc
     where org = dfa1
-          reach = DFA [1,2,3] "abc" 1 [3] [(1,'a',3),(1,'b',2),(2,'a',2),(2,'c',3)]
-          fdef = DFA [1,2,3,4] "abc" 1 [3] [(1,'a',3),(1,'b',2),(1,'c',4),(2,'a',2),
+          reach = toSetDFA [1,2,3] "abc" 1 [3] [(1,'a',3),(1,'b',2),(2,'a',2),(2,'c',3)]
+          fdef = toSetDFA [1,2,3,4] "abc" 1 [3] [(1,'a',3),(1,'b',2),(1,'c',4),(2,'a',2),
                                             (2,'b',4),(2,'c',3),(3,'a',4),(3,'b',4),
                                             (3,'c',4),(4,'a',4),(4,'b',4),(4,'c',4)]
           indist = [[(3,3),(1,1),(1,2),(1,4),(2,1),(2,2),(2,4),(4,1),(4,2),(4,4)],
                     [(3,3),(1,1),(2,2),(4,4)],
                     [(3,3),(1,1),(2,2),(4,4)]]
-          relst = [[3],[1],[2],[4]]
-          reduc = DFA [0,1,2] "abc" 0 [2] [(0,'a',2),(0,'b',1),(1,'a',1),(1,'c',2)]
+          relst = sort $ [[3],[1],[2],[4]]
+          reduc = toSetDFA [0,1,2,3] "abc" 0 [1] [(0,'a',1),(0,'b',2),(0,'c',3),(1,'a',3),
+                                                  (1,'b',3),(1,'c',3),(2,'a',2),(2,'b',3),
+                                                  (2,'c',1),(3,'a',3),(3,'b',3),(3,'c',3)]
+
+dfa2 :: DFA
+dfa2 = toSetDFA states alpha init final trans 
+    where states = [0,1,2,3,4,5]
+          alpha  = "ab"
+          init   = 0
+          final  = [2,4]
+          trans  = [(0,'a',1),(0,'b',1),(1,'a',5),(1,'b',2),(2,'a',3),(2,'b',3),
+                    (3,'a',4),(3,'b',5),(4,'a',5),(4,'b',5)]
+
+dfa2_suite :: DFASuite
+dfa2_suite = DFASuite org reach fdef indist relst reduc
+    where org = dfa2
+          reach = dfa2
+          fdef = DFA (Set.fromList [0,1,2,3,4,5,6]) (alpha dfa2) (0) (final dfa2)
+                 (Set.fromList [(0,'a',1),(0,'b',1),(1,'a',5),(1,'b',2),(2,'a',3),
+                                (2,'b',3),(3,'a',4),(3,'b',5),(4,'a',5),(4,'b',5),
+                                (5,'a',6),(5,'b',6),(6,'a',6),(6,'b',6)])
+          indist = [[(2,2),(2,4),(4,2),(4,4), (0,0),(0,1),(0,3),(0,5),(0,6),(1,0),
+                     (1,1),(1,3),(1,5),(1,6),(3,0),(3,1),(3,3),(3,5),(3,6),(5,0),
+                     (5,1),(5,3),(5,5),(5,6),(6,0),(6,1),(6,3),(6,5),(6,6)],
+                    [(2,2),(2,4),(4,2),(4,4), (0,0),(0,5),(0,6),(1,1), (3,3),(5,0),
+                     (5,5),(5,6),(6,0),(6,5),(6,6)],
+                    [(2,2),(4,4),(0,0),(1,1),(3,3),(5,5),(5,6),(6,5),(6,6)],
+                    [(2,2),(4,4),(0,0),(1,1),(3,3),(5,5),(5,6),(6,5),(6,6)]]
+          relst = sort $ [[0],[1],[2],[3],[4],[5,6]]
+          reduc = toSetDFA [0,1,2,3,4,5] "ab" 0 [3,5] [(0,'a',1),(0,'b',1),(1,'a',2),
+                                                       (1,'b',3),(2,'a',2),(2,'b',2),
+                                                       (3,'a',4),(3,'b',4),(4,'a',5),
+                                                       (4,'b',2),(5,'a',2),(5,'b',2)]
+
 
 -- =============================================================================
 -- | Functions to be tested
@@ -92,7 +139,8 @@ runTests
 runSuites :: [Either String String]
 runSuites = map (\(d, n) -> testDFA d n) suites
     where suites = [(dfa0_suite, "DFA 0: "),
-                    (dfa1_suite, "DFA 1: ")]
+                    (dfa1_suite, "DFA 1: "),
+                    (dfa2_suite, "DFA 2: ")]
 
 main :: IO ()
 main = do
@@ -123,16 +171,17 @@ testDFA suite@DFASuite{..} name
           resFDef = toFullyDefinedDFA resReachable
           resIndist0 = indist0Rel (states resFDef) (final resFDef)
           resIndist = allIndistRel resFDef
-          resRelStates = indistToStates (last resIndist)
-          resReduced = rmSink $ toReducedDFA resFDef
+          resRelStates = sort $ statesInRelation (last resIndist) (statesList resFDef)
+          resReduced = toReducedDFA resFDef
           showDiff desc ok bad = Left (name ++ desc ++ "\n" ++ show ok ++ "\n" ++ show bad)
 
 -- | Return the list of indistinguishable relation is the same for all values of k
-allIndistRel :: DFA -> [[(State, State)]]
-allIndistRel dfa@DFA{..} = untilSameIndist [] (indist0Rel states final) alphabet trans
+allIndistRel :: DFA -> [[StatePair]]
+allIndistRel dfa@DFA{..} = untilSameIndist [] (indist0Rel states final) 
+                                               (alphaList dfa) (transList dfa)
 
-untilSameIndist :: [(State, State)] -> [(State, State)] -> Alphabet -> TransRules -> 
-                   [[(State, State)]]
+untilSameIndist :: [StatePair] -> [StatePair] -> [Symbol] -> [Trans] -> 
+                   [[StatePair]]
 untilSameIndist indist0 indist1 alpha trans
     | indist0 /= indist1 = indist1 : untilSameIndist indist1 indistNext alpha trans
     | otherwise          = indist1 : []

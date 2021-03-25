@@ -97,3 +97,4 @@ instance Show DFA where
               showTrans (p, a, q) = show p ++ [',', a, ','] ++ show q
 
 
+

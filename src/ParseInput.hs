@@ -110,5 +110,3 @@ isTransAmbiguous _ [] = False
 isTransAmbiguous x (t:ts) = isSameSrcSymb x t || isTransAmbiguous x ts
     where isSameSrcSymb = \(q, a, _) (p, c, _) -> q == p && a == c
 
-
-

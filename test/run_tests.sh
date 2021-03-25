@@ -6,6 +6,9 @@
 OK=0
 ERR=1
 
+# Show STDERR output, 0 for disabled, otherwise enabled
+SHOW_ERRORS=0
+
 # Default path to binary
 BIN="dka-2-mka"
 
@@ -79,7 +82,7 @@ declare -A params=( ["${tests[0]}"]="$OK -t Minimization of the reference DFA"
                     ["${tests[27]}"]="$OK -i Transition rules: duplicate"
                     # Mix
                     ["${tests[28]}"]="$ERR -i Nondeterministic Finite Automata"
-                    ["${tests[29]}"]="$ERR -i Newlines at the end of the file"
+                    ["${tests[29]}"]="$OK -i Newlines at the end of the file"
                     ["${tests[30]}"]="$ERR -a Unknown argument"
                     ["${tests[31]}"]="$ERR    Missing arguments"
                     ["${tests[32]}"]="$ERR -i Alphabet: unicode lower case symbol"
@@ -116,6 +119,12 @@ handle_ok() {
     ((total_ok+=1))
 }
 
+show_stderr() {
+    if [ $SHOW_ERRORS -ne 0 ] ; then
+        cat $EOUT
+    fi
+}
+
 # Run all tests
 for t in "${tests[@]}"
 do
@@ -134,8 +143,7 @@ do
 
     # TODO
     # Run as a file
-    #./$BIN $arg $TIN
-
+    #./$BIN $arg $TIN 1> $OUT 2> $EOUT
     # Run as an input
     ./$BIN $arg < $TIN 1> $OUT 2> $EOUT
 
@@ -147,7 +155,7 @@ do
     # On Error, no need to compare outputs
     if [ $RET -ne $code ] ; then
         handle_err
-        cat $EOUT
+        show_stderr
         continue
     fi
     # Passed
@@ -159,14 +167,14 @@ do
         match=$(diff $TOUT $OUT)
         if [ $? -ne 0 ] ; then
             handle_not_matching
-            cat $EOUT
+            show_stderr
             echo "$match"
             continue
         fi
     fi 
 
     handle_ok
-    cat $EOUT
+    show_stderr
     ((total+=1))
 done
 
