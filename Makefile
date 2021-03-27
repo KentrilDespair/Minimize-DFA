@@ -1,17 +1,17 @@
 #------------------------------------------------------------------------------
-#- Project: DKA-2-MKA (Deterministic Finite Automata to Minimal Finite Automata)
-#-  Functional and Logical Programming 2020 / 2021
-#- Author: Martin Smutny, xsmutn13
-#- Date: 03.03.2021
-#-
-#- Makefile for compilation
-#	the binary 'dka-2-mka' is put in the same directory
+# Project: DKA-2-MKA (Deterministic Finite Automata to Minimal Finite Automata)
+#          Functional and Logical Programming 2020 / 2021
+# Author:  Martin Smutny, xsmutn13
+# Date:    03.03.2021
+#
+# Makefile for compilation:
+#	the binary 'dka-2-mka' is put in the same directory as this Makefile
 #-------------------------------------------------------------------------------
 
 # TODO Merlin test
 
 GHC = ghc
-FLAGS = -O
+FLAGS = -O2 
 
 #-------------------------------------------------------------------------------
 # Directories
@@ -51,7 +51,7 @@ test: $(BIN) $(TEST_SC)
 
 unit: $(UNIT) $(TYPES) $(MIN)
 	$(GHC) $(FLAGS) -o $(BINU) $^
-	./$(BINU)
+	time ./$(BINU)
 
 clean:
 	rm $(BIN) $(SRC_DIR)/*.hi $(SRC_DIR)/*.o $(TEST_DIR)/*.temp 
