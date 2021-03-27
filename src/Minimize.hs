@@ -10,158 +10,155 @@
 
 {-# LANGUAGE RecordWildCards #-}
 
+-- For UnitTest.hs nothing is explicitly exported
 module Minimize where
 
--- TODO what is imported, rather describe in Types
-import Types
+import Types (State, States, StatePair, Symbol, Trans, TransRules, transDst,
+              stateList, alphaList, finalList, transList, DFA(..), 
+              TransFnc, toTransFnc, toTransFncL, getDest)
 
 import System.Exit (die)
--- TODO clear from unused
-import Data.List (nub, nubBy, (\\), delete, sort)
--- TODO qualified only those that are needed
-import qualified Data.Set as Set (
-    empty, singleton, fromList, toList, null, size, map, findMax, filter, insert,
-    member, union, unions, intersection, (\\), delete)
-import qualified Data.Map as Map (Map, empty, insert, (!), null, elems, fromList, assocs)
+
+import Data.List (nub, nubBy, (\\))
+import qualified Data.Set as Set
+import qualified Data.Map as Map
 
 
--- | TODO
--- minimizeDFA = rmSink . toReducedDFA . toFullyDefinedDFA . rmUnreachable 
+-- | Returns a reduced DFA with total transition function
+-- |    *SINK state is not removed*
 minimizeDFA :: DFA -> DFA
-minimizeDFA = toReducedDFA . toFullyDefinedDFA . rmUnreachable 
+minimizeDFA = {- rmSink . -} toReducedDFA . toFullyDefinedDFA . rmUnreachable 
 
 -- | ----------------------------------------------------------------------
 -- | 1. 
--- | Removes all unreachable states
+-- | Elimination of unreachable states
 rmUnreachable :: DFA -> DFA
 rmUnreachable dfa@DFA{..} = 
         DFA reachableStates alpha init reachableFinal reachableTrans 
     where reachableStates = untilNoNext Set.empty (Set.singleton init) trans
-          reachableTrans  = Set.filter (\(q, _, _) -> q `Set.member` reachableStates) trans
+          reachableTrans  = Set.filter (\(q,_,_) -> q `Set.member` reachableStates) trans
           reachableFinal  = final `Set.intersection` reachableStates
 
--- | Returns all states we can get into from the initial state
+-- | Finds all states we can get into from initial states
 untilNoNext :: States -> States -> TransRules -> States
 untilNoNext s_0 s_1 ts
     | s_0 == s_1 = s_1
     | otherwise  = untilNoNext s_1 (s_1 `Set.union` possibleDests) ts
     where possibleDests = stepThrough s_1 ts
 
--- | For all states finds all states they can get into using any symbol
--- | TODO rename
+-- | For all input states finds all states they can get into using any symbol
 stepThrough :: States -> TransRules -> States
-stepThrough st ts = Set.map transDst $ Set.unions $ Set.map transSameSrc st
-    where transSameSrc s = Set.filter (\(q, _, p) -> q == s) ts
+stepThrough st ts = eachStateDests $ Set.unions transFromStates
+    where fromState s     = Set.filter (\(q,_,_) -> q == s) ts
+          transFromStates = Set.map fromState st
+          eachStateDests  = Set.map transDst
 
 -- | ----------------------------------------------------------------------
 -- | 2.
 -- | Converts to equivalent fully defined DFA
--- |    Checks if the transition function (rules) is (are) total, if not then 
+-- |    Checks if the transition function (rules) is total, if not then 
 -- |    the DFA is extended by a SINK state
 toFullyDefinedDFA :: DFA -> DFA
 toFullyDefinedDFA dfa@DFA{..} = if null toSinkTrans
         then dfa
-        else DFA (Set.insert sink states) alpha init final totalTrans 
+        else DFA (sink `Set.insert` states) alpha init final totalTrans 
     where sink        = Set.findMax states + 1
-          totalTrans  = trans `Set.union` (Set.fromList $ toSinkTrans ++ sinkTrans)
-          toSinkTrans = [(q, a, sink) | q <- st, a <- al, notExistTrans q a trans]
-          sinkTrans   = [(sink, a, sink) | a <- al]
-          st          = statesList dfa
+          -- TODO test
+          --totalTrans  = trans `Set.union` Set.fromList (toSinkTrans ++ sinkTrans)
+          totalTrans  = Set.fromList (ts ++ toSinkTrans ++ sinkTrans)
+          toSinkTrans = [(q,a,sink) | q <- st, a <- al, notExistTrans (q,a) transFnc]
+          sinkTrans   = [(sink,a,sink) | a <- al]
+          st          = stateList dfa
           al          = alphaList dfa
+          ts          = transList dfa
+          transFnc    = toTransFnc trans
 
--- TODO same as find Dest
--- | Whether transition rules from a state using a symbol not exist
-notExistTrans :: State -> Symbol -> TransRules -> Bool
-notExistTrans q a ts = Set.null $ Set.filter isSameSrcSymb ts
-    where isSameSrcSymb = \(p, c, _) -> p == q && c == a
+-- | Whether there are NO transition rules from a state using a symbol
+notExistTrans :: (State, Symbol) -> TransFnc -> Bool
+notExistTrans k m = k `Map.notMember` m
 
 -- | ----------------------------------------------------------------------
 -- | 3. Conversion of FULLY DEFINED DFA to REDUCED DFA
 -- |    where no state is unreachable, and no two states are indistinguishable
--- | TODO
--- TODO remove symmetry in StatePair
--- TODO maybe to Set for further use??
+-- | 
 toReducedDFA :: DFA -> DFA
 toReducedDFA dfa@DFA{..} = if Set.size states < 2 then dfa 
-                           else DFA newStates alpha newInit newFinal newTrans
-    where newStates   = Set.fromList [0..totalEqCls]
+                           else DFA (Set.fromList newStates) alpha newInit 
+                                    newFinal (Set.fromList newTrans)
+    where newStates   = [0..totalEqCls]
           newInit     = 0
-          newFinal    = Set.map (\f -> getEq f) final
-          newTrans    = Set.fromList [(eq,a,eqP) | eq <- (Set.toList newStates), a <- alphaList dfa, 
-                                         let eqP = getEq (getDest (getSt eq) a (transList dfa))]
-
-          statesInRel = statesInRelation (untilIndist [] [] dfa) (statesList dfa)
+          newFinal    = Set.map getEq final
+          newTrans    = [(eq,a,eqP) | eq <- newStates, a <- al, 
+                                      let dst = getDest ((getSt eq),a) transFnc,
+                                      let eqP = getEq dst]
           totalEqCls  = length statesInRel -1
+          statesInRel = statesInRelation st indistRel
+          indistRel   = untilIndist [] (indist0Rel st fs) al transFnc
     -- Defined mappings between states and equiv. classes
-          (st2eq, eq2st) = relabelInOrder init (transList dfa) statesInRel
+          (st2eq, eq2st) = relabelInOrder init ts statesInRel
           getEq s     = st2eq Map.! s
           getSt e     = eq2st Map.! e
+    -- List variants
+          st          = stateList dfa
+          al          = alphaList dfa
+          fs          = finalList dfa
+          ts          = transList dfa
+          transFnc    = toTransFncL ts
 
 --------------------------------------------------------------------------------
--- | TODO
-untilIndist :: [StatePair] -> [StatePair] -> DFA -> [StatePair]
-untilIndist [] [] dfa@DFA{..} = untilIndist [] indistRel0 dfa
-    where indistRel0  = concat $ map (relEquiv) [finalList dfa, Set.toList $ states Set.\\ final]
-          relEquiv st = [(p, q) | p <- st, q <- st]
-untilIndist indist0 indist1 dfa@DFA{..}
-    | indist0 /= indist1 = untilIndist indist1 indistK dfa
-    | otherwise          = indist1
-    where indistK     = nextIndist indist1 al ts
-          al          = alphaList dfa
-          ts          = transList dfa
-        
-indist0Rel :: States -> States -> [StatePair]
-indist0Rel states final = concat $ map (relEquiv) 
-                            [Set.toList final, Set.toList $ states Set.\\ final]
-    where relEquiv st = [(p, q) | p <- st, q <- st]
-
--- | Checks the property of the next indistinguishable relation
-nextIndist :: [StatePair] -> [Symbol] -> [Trans] -> [StatePair] 
-nextIndist indistK al ts = [(p, q) | (p, q) <- indistK, allDestsIndist (destPairs p q al ts)]
-    where allDestsIndist = all (`elem` indistK) 
-
-destPairs :: State -> State -> [Symbol] -> [Trans] -> [StatePair]
-destPairs p q al ts = [(d1, d2) | a <- al, let d1 = getDest p a ts,
-                                           let d2 = getDest q a ts]
-
--- | Returns the destination state we get into from state using symbol
--- | expects FULLY DEFINED DFA's transition rules
--- -- TODO error or use find
--- TODO one function in types??
-getDest :: State -> Symbol -> [Trans] -> State
-getDest p a ((q, c, d):ts)
-    | p == q && a == c = d
-    | null ts          = error "getDest SHOULD NOT HAPPEN"
-    | otherwise        = getDest p a ts
-
 -- | Returns a list of lists of indistinguishable states 
 -- |    e.g. {[1,6],[2,5],[3,4]}
--- TODO better, return set
-statesInRelation :: [StatePair] -> [State] -> [[State]]
-statesInRelation sp st = nub [map snd $ filter inRelation sp | q <- st, 
+-- TODO better, return set vs nub
+-- TODO input what are those
+statesInRelation :: [State] -> [StatePair] -> [[State]]
+statesInRelation st indist = nub [map snd $ filter inRelation indist | q <- st, 
                                         let inRelation = \(p,_) -> p == q]
+
+-- | Indistinguishable relation for 'k = 0', on pairs of states (relation of equivalence)
+indist0Rel :: [State] -> [State] -> [StatePair]
+indist0Rel st fs = relEquiv fs ++ relEquiv (st \\ fs)
+    where relEquiv qs = [(p, q) | p <- qs, q <- qs]
+
+-- | Until each state is indistinguishable for each value of 'k'
+untilIndist :: [StatePair] -> [StatePair] -> [Symbol] -> TransFnc -> [StatePair]
+untilIndist indist0 indist1 al m
+    | indist0 /= indist1 = untilIndist indist1 indistK al m
+    | otherwise          = indist1
+    where indistK = nextIndist indist1 al m
+        
+-- | Checks the property of the next indistinguishable relation
+-- |    all destination states of states in relation are also in relation
+nextIndist :: [StatePair] -> [Symbol] -> TransFnc -> [StatePair] 
+nextIndist indistK al m = [(p, q) | (p, q) <- indistK, destsIndist (destPairs p q al m)]
+    where destsIndist = all (`elem` indistK) 
+
+-- | Returns pairs of destination states of two states for each symbol
+destPairs :: State -> State -> [Symbol] -> TransFnc -> [StatePair]
+destPairs p q al m = [(d1, d2) | a <- al, let d1 = getDest (p,a) m,
+                                          let d2 = getDest (q,a) m]
+
 --------------------------------------------------------------------------------
--- | init transList Possible set of those states in rel
+-- | 
 relabelInOrder :: State -> [Trans] -> [[State]] -> (Map.Map State State, Map.Map State State)
 relabelInOrder init ts stInRel = (m, mapEq2States m)
-    where eqClsOrdered = toEqInorder 0 [findIndist init stInRel] ts stInRel
-          m = foldl (\macc st -> mapStates2Eq st macc) (Map.empty) eqClsOrdered
+    where m = foldl (flip mapStates2Eq) Map.empty eqClsOrdered
+          eqClsOrdered = toEqInorder 0 [findIndist init stInRel] ts stInRel
 
 -- | Relables transition rules using equivalence classes that each state is in
 -- |    starting from initial state
 -- toDestInorder init [init] {[1,6], [2,5], [3,4]}
 -- [1,6,2, 1,5, 5,4, ], LOOP
 -- [1,2,4] not already added a neni ve stejne skupine
---            1 [1] [findIndist 1 stRels]
+-- What are ethe params?
+-- How does it work?
 toEqInorder :: Int -> [[State]] -> [Trans] -> [[State]] -> [[State]]
 toEqInorder i indist ts relst
     | i >= length indist = indist
-    -- | null newSt         = indist
     | otherwise          = toEqInorder (i+1) (indist ++ newIndist) ts relst
-    where s = head $ indist !! i
-          newSt = filter isUniq (getDests s ts)
-          isUniq = \s -> not $ any (s `elem`) indist
-          newIndist = map (\s -> findIndist s relst) newSt
+    where newIndist = map (`findIndist` relst) newSt
+          newSt     = filter isUniq (getDests curState ts)
+          isUniq s  = not $ any (s `elem`) indist
+          curState  = head $ indist !! i
 
 -- Not ordered! BUT UNIQUE
 getDests :: State -> [Trans] -> [State]
@@ -169,10 +166,9 @@ getDests s ts = nub $ map transDst $ filter (\(q,_,_) -> q == s) ts
 
 -- | Returns the indistinguishable states from the state
 findIndist :: State -> [[State]] -> [State]
-findIndist s (st:stRels)
-    | s `elem` st = st
-    | null stRels = error "State should exist"
-    | otherwise   = findIndist s stRels
+findIndist _ [] =  error "Each state should exist"
+findIndist s (st:stRels) = if s `elem` st then st 
+                                          else findIndist s stRels
 
 -- | Maps states to the same equivalence class, always creates a new equivalence
 -- |    class which is +1 the previous
@@ -181,26 +177,28 @@ mapStates2Eq st m = foldl (\macc s -> Map.insert s newEq macc) m st
     where newEq = if Map.null m then 0 else maxEq +1
           maxEq = maximum $ Map.elems m
 
-
--- | Using Map State -> Eq, returns a Map Eq -> State
--- |    Because the states under one eq. class are indistinguishable only 
--- |    the first is used.
+-- | Using Map: State to EqClass, returns a Map: EqClass to State
+-- |    Because the states under one eq. class are indistinguishable, only 
+-- |    the first is used as the value under the eq. class key.
 mapEq2States :: Map.Map State State -> Map.Map State State
 mapEq2States = Map.fromList . map flipPair . nubBy firstInEq . Map.assocs
-    where firstInEq = \(p,q) (u,v) -> q == v
-          flipPair  = \(p,q) -> (q,p)
-
-
+    where flipPair  (p,q)       = (q,p)
+          firstInEq (_,q) (_,v) = q == v
+          
 -- | ----------------------------------------------------------------------
--- | 4. Remove possible SINK state
--- |    a non-final state with transition rules only to itself
+-- | 4. 
+-- | Remove possible SINK state
+-- |    - a non-final state with transition rules only to itself
 rmSink :: DFA -> DFA
 rmSink dfa@DFA{..} = if notExistsSink then dfa
                                       else DFA newStates alpha init final newTrans
-    where (sinkState, sinkRules) = findSink (Set.toList $ states Set.\\ final) (Set.size alpha) trans
+    where (sinkState, sinkRules) = findSink (st \\ fs) (Set.size alpha) trans
           notExistsSink = Set.null $ sinkRules
           newStates     = Set.delete sinkState states
-          newTrans      = (Set.filter (\(_, _, q) -> q /= sinkState) trans) Set.\\ sinkRules
+          newTrans      = Set.filter (\(_,_,q) -> q /= sinkState) trans Set.\\ sinkRules
+          st            = stateList dfa
+          fs            = finalList dfa
+          -- TODO test
           --newTrans      = [t | t@(_, _, q) <- trans, q /= sinkState] \\ sinkRules
 
 -- | Checks if a list of transition rules with the same "src" and "dest" state

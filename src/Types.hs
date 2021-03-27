@@ -16,14 +16,16 @@ module Types where
 
 import Data.List (intercalate)
 import Data.Set (Set, toList)
+import Data.Map (Map, empty, insert, (!))
+
 
 -- | An error message
 type Error = String
 
--- | State of DFA as an Integer (non-negative TODO)
+-- | State of DFA as an integer (non-negative)
 type State = Int
 
--- | A finite list of states
+-- | A finite set of states
 type States = Set State
 
 -- | A pair of states, i.e. states in a relation
@@ -32,14 +34,18 @@ type StatePair = (State, State)
 -- | Symbol of the input alphabet
 type Symbol = Char
 
--- | A finit list of symbols
+-- | A finite set of symbols
 type Alphabet = Set Symbol
 
--- | A transition rule is a triple, i.e.:
--- | transition from state 'src' to state 'dst' using symbol 'symb'
+-- | A transition rule is a triple:
+-- | transition from state 'src' using symbol 'symb' to 'dst' state
+-- |          'src'  'symb'  'dst'
 type Trans = (State, Symbol, State)
 
--- TODO Used?
+-- | A finite set of transition rules
+type TransRules = Set Trans
+
+-- | Transition "constructor" and accessors
 transRule :: State -> Symbol -> State -> Trans
 transRule p a q = (p, a, q)
 
@@ -51,9 +57,6 @@ transSymb (_, a, _) = a
 
 transDst :: Trans -> State
 transDst (_, _, s) = s
-
--- | A finite set of transition rules
-type TransRules = Set Trans
 
 -- | Deterministic Finite Automaton consists of 
 -- | 'states':   a finite, non-empty set of states 
@@ -69,8 +72,8 @@ data DFA = DFA { states   :: States
                } deriving (Eq)
 
 -- | List accessors for e.g. list comprehensions
-statesList :: DFA -> [State]
-statesList DFA{..} = toList states
+stateList :: DFA -> [State]
+stateList DFA{..} = toList states
 
 alphaList :: DFA -> [Symbol]
 alphaList DFA{..} = toList alpha 
@@ -80,6 +83,21 @@ finalList DFA{..} = toList final
 
 transList :: DFA -> [Trans]
 transList DFA{..} = toList trans 
+
+-- | Proper transition function
+type TransFnc = Map (State, Symbol) State
+
+toTransFnc :: TransRules -> TransFnc
+toTransFnc = foldl (\macc (p,a,q) -> insert (p,a) q macc) empty
+
+toTransFncL :: [Trans] -> TransFnc
+toTransFncL = foldl (\macc (p,a,q) -> insert (p,a) q macc) empty
+
+-- | Returns the destination state we get into from a state using a symbol
+-- |    Expects fully defined transition function
+getDest :: (State, Symbol) -> TransFnc -> State
+getDest k m = m ! k
+
 
 -- Output in format:
 --  states separated by comma
@@ -92,7 +110,7 @@ instance Show DFA where
                               toList alpha,
                               show init,
                               showList final
-                             ] ++ (map showTrans $ toList trans)
+                             ] ++ map showTrans (toList trans)
         where showList = intercalate "," . map show . toList
               showTrans (p, a, q) = show p ++ [',', a, ','] ++ show q
 

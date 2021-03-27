@@ -12,7 +12,25 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import Types
+    ( DFA(..),
+      Trans,
+      Symbol,
+      StatePair,
+      State,
+      stateList,
+      alphaList,
+      finalList,
+      transList,
+      TransFnc,
+      toTransFnc )
 import Minimize
+    ( rmUnreachable,
+      toFullyDefinedDFA,
+      toReducedDFA,
+      indist0Rel,
+      nextIndist,
+      statesInRelation,
+      minimizeDFA )
 
 import qualified Data.Set as Set
 import Data.List (sort)
@@ -128,16 +146,31 @@ dfa2_suite = DFASuite org reach fdef indist relst reduc
                                                        (3,'a',4),(3,'b',4),(4,'a',5),
                                                        (4,'b',2),(5,'a',2),(5,'b',2)]
 
+benchSt = [0..100]
+benchAl_high = ['a'..'h']
+benchAl_low = "a"
+benchFi = [0..10]
+benchTs_full = [(p,a,q) | p <- benchSt, q <- benchSt, a <- benchAl_high, p <= q]
+
+dfaB_full :: DFA
+dfaB_full = toSetDFA states alpha init final trans 
+    where states = benchSt
+          alpha  = benchAl_high
+          init   = 0
+          final  = benchFi
+          trans  = benchTs_full
+
 
 -- =============================================================================
 -- | Functions to be tested
 
 runTests :: Either String String
 runTests 
+    | minimizeDFA dfaB_full == dfaB_full = Left "error bench"
     | otherwise = Right "All Ok"
 
 runSuites :: [Either String String]
-runSuites = map (\(d, n) -> testDFA d n) suites
+runSuites = map (uncurry testDFA) suites
     where suites = [(dfa0_suite, "DFA 0: "),
                     (dfa1_suite, "DFA 1: "),
                     (dfa2_suite, "DFA 2: ")]
@@ -145,8 +178,8 @@ runSuites = map (\(d, n) -> testDFA d n) suites
 main :: IO ()
 main = do
     putStrLn "Running unit tests ..."
-    mapM (either (putStrLn . ((++) "Error: ")) (putStrLn)) runSuites 
-    either (putStrLn . ((++) "Error: ")) (putStrLn) runTests
+    mapM_ (either (putStrLn . ("Error: " ++)) putStrLn) runSuites 
+    either (putStrLn . ("Error: " ++)) putStrLn runTests
     return ()
     
 
@@ -157,8 +190,8 @@ testDFA suite@DFASuite{..} name
         = showDiff "Remove unreachable" reachable resReachable
     | resFDef /= fdefined 
         = showDiff "Fully defined DFA" fdefined resFDef
-    | resIndist0 /= indistRel !! 0 
-        = showDiff "Indist. relation 0" (indistRel !! 0) resIndist0
+    | resIndist0 /= head indistRel
+        = showDiff "Indist. relation 0" (head indistRel) resIndist0
     | resIndist /= indistRel
         = showDiff "Indist. relations" indistRel resIndist
     | resRelStates /= relStates
@@ -169,23 +202,23 @@ testDFA suite@DFASuite{..} name
    -- | cmpShowDiff "Remove unreachable" reachable resReachable 
     where resReachable = rmUnreachable dfa
           resFDef = toFullyDefinedDFA resReachable
-          resIndist0 = indist0Rel (states resFDef) (final resFDef)
+          resIndist0 = indist0Rel (stateList resFDef) (finalList resFDef)
           resIndist = allIndistRel resFDef
-          resRelStates = sort $ statesInRelation (last resIndist) (statesList resFDef)
+          resRelStates = sort $ statesInRelation (stateList resFDef) (last resIndist) 
           resReduced = toReducedDFA resFDef
           showDiff desc ok bad = Left (name ++ desc ++ "\n" ++ show ok ++ "\n" ++ show bad)
 
 -- | Return the list of indistinguishable relation is the same for all values of k
 allIndistRel :: DFA -> [[StatePair]]
-allIndistRel dfa@DFA{..} = untilSameIndist [] (indist0Rel states final) 
-                                               (alphaList dfa) (transList dfa)
+allIndistRel dfa@DFA{..} = untilSameIndist [] indist0 (alphaList dfa) (toTransFnc trans)
+    where indist0 = indist0Rel (stateList dfa) (finalList dfa)
 
-untilSameIndist :: [StatePair] -> [StatePair] -> [Symbol] -> [Trans] -> 
+untilSameIndist :: [StatePair] -> [StatePair] -> [Symbol] -> TransFnc -> 
                    [[StatePair]]
-untilSameIndist indist0 indist1 alpha trans
-    | indist0 /= indist1 = indist1 : untilSameIndist indist1 indistNext alpha trans
-    | otherwise          = indist1 : []
-    where indistNext = nextIndist indist1 alpha trans
+untilSameIndist indist0 indist1 alpha tf
+    | indist0 /= indist1 = indist1 : untilSameIndist indist1 indistNext alpha tf
+    | otherwise          = [indist1] 
+    where indistNext = nextIndist indist1 alpha tf
 
 --------------------------------------------------------------------------------
 -- | 

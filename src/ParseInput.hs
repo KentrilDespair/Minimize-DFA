@@ -14,24 +14,22 @@ module ParseInput
 ( parseDFA
 ) where
 
--- TODO
---(Error, DFA, State, States, 
-             -- Alphabet, Symbol,
-             -- Trans, transRule, TransRules, transSrc, transDst, transSymb)
-import Types 
+import Types (Error, State, States, Symbol, Alphabet, Trans, TransRules, DFA(..), 
+              transRule, transSrc, transSymb, transDst) 
 
 import Data.Char (isAsciiLower)
 import Data.Set (fromList, toList, member, isSubsetOf)
+
 import Text.Parsec.String (Parser)
 import Text.Parsec (parse, satisfy, newline, 
                     sepBy1, sepBy, many1, endBy,
-                    digit, lower, char)
+                    digit, char)
 import Control.Monad ((<=<))
 import Control.Arrow (left)
 
 
--- | Converts input string to DFA. If syntactically correct then returns the DFA
--- |    else returns an error
+-- | Converts input string to DFA. Return the DFA is syntactically correct else
+-- |    returns an error
 parseDFA :: String -> Either Error DFA
 parseDFA = isDFA <=< left show . parse parserDFA ""
     where parserDFA = DFA <$> parseStates       <* newline
@@ -40,7 +38,7 @@ parseDFA = isDFA <=< left show . parse parserDFA ""
                           <*> parseFinalStates  <* newline
                           <*> parseTransRules
 
--- | States are non-empty, finite set states separated by comma
+-- | States are non-empty, finite set of states separated by comma
 parseStates :: Parser States
 parseStates = fromList <$> parseState `sepBy1` sepComma
 
@@ -74,7 +72,6 @@ parseTrans = transRule <$> parseState <* sepComma <*> parseSymbol <* sepComma
 sepComma :: Parser Char 
 sepComma = char ','
 
--- TODO move to Types.hs???
 -- | Syntax checks if is Deterministic Finite Automaton
 -- |    initial state is in states
 -- |    final states are in states
@@ -89,16 +86,17 @@ isDFA dfa@DFA{..}
     | isNotDFA    = Left "Non-deterministic Finite Automaton"
     | otherwise   = Right dfa
     where 
-        isFA = init `member` states
-            && final `isSubsetOf` states
-            && all (inStates . transSrc) trans
-            && all (inAlphabet . transSymb) trans
-            && all (inStates . transDst) trans
-        inStates = (`member` states)
+        isFA       = init `member` states
+                  && final `isSubsetOf` states
+                  && all (inStates . transSrc) trans
+                  && all (inAlphabet . transSymb) trans
+                  && all (inStates . transDst) trans
+        inStates   = (`member` states)
         inAlphabet = (`member` alpha)
-        isNotDFA = isNFA $ toList trans
+        isNotDFA   = isNFA $ toList trans
 
--- | Checks if is non deterministic FA
+-- | Is non-deterministic FA if only one transition rule is ambiguous
+-- |    assumes no duplicate transition rules (is from Set)
 isNFA :: [Trans] -> Bool
 isNFA [] = False
 isNFA (t:ts) = isTransAmbiguous t ts || isNFA ts
@@ -108,5 +106,6 @@ isNFA (t:ts) = isTransAmbiguous t ts || isNFA ts
 isTransAmbiguous :: Trans -> [Trans] -> Bool
 isTransAmbiguous _ [] = False
 isTransAmbiguous x (t:ts) = isSameSrcSymb x t || isTransAmbiguous x ts
-    where isSameSrcSymb = \(q, a, _) (p, c, _) -> q == p && a == c
+    where isSameSrcSymb (q, a, _) (p, c, _) = q == p && a == c
+
 
