@@ -8,8 +8,6 @@
 #	the binary 'dka-2-mka' is put in the same directory as this Makefile
 #-------------------------------------------------------------------------------
 
-# TODO Merlin test
-
 GHC = ghc
 FLAGS = -O2 
 

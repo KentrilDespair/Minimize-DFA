@@ -121,7 +121,6 @@ oneStateDFA dfa@DFA{..} init = DFA (Set.singleton init)
                                        else Set.singleton init
           al = alphaList dfa
 
--- TODO better, return set vs nub
 -- | Converts the indistinguishable relation ([(p,q)]) to a list of lists of 
 -- |    states in relation, e.g. [[1,6],[2,5],[3,4]]
 statesInRelation :: [StatePair] -> [State] -> [[State]]
