@@ -1,5 +1,8 @@
 # Minimize-DFA
 
+__"die" function was customly defined in src/ParseInput.hs due to Merlin having
+older version of Base. Hopefully this does not break anything.__
+
 A command line program for minimization of __Deterministic Finite Automaton__ (DFA) written in *Haskell*. Converts DFA to __Reduced Deterministic Finite Automaton__ (RDFA) with __total__ transition function, shortly __Minimal Finite Automaton__ (MFA).
 
 ## Requirements

@@ -16,6 +16,7 @@ FLAGS = -O2
 
 SRC_DIR = src
 TEST_DIR = test
+DOC_DIR = doc
 
 #-------------------------------------------------------------------------------
 # Files
@@ -34,7 +35,7 @@ BINU = unitTest
 
 #-------------------------------------------------------------------------------
 # Labels
-.PHONY: all run test clean unit
+.PHONY: all run test clean unit archive
 
 all: $(BIN)
 
@@ -52,6 +53,8 @@ unit: $(UNIT) $(TYPES) $(MIN)
 	time ./$(BINU)
 
 clean:
-	rm $(BIN) $(SRC_DIR)/*.hi $(SRC_DIR)/*.o $(TEST_DIR)/*.temp 
-	   $(TEST_DIR)/*.err $(BINU)
+	rm $(BIN) $(SRC_DIR)/*.hi $(SRC_DIR)/*.o $(TEST_DIR)/*.temp $(TEST_DIR)/*.err $(BINU)
+
+archive:
+	zip -r xsmutn13.zip $(SRC_DIR) $(TEST_DIR) Makefile $(DOC_DIR)
 

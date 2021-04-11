@@ -15,9 +15,9 @@ module Minimize where
 
 import Types (State, States, StatePair, Symbol, Trans, TransRules, transDst,
               stateList, alphaList, finalList, transList, DFA(..), 
-              TransFnc, toTransFnc, toTransFncL, getDest)
+              TransFnc, toTransFnc, toTransFncL, getDest, die)
 
-import System.Exit (die)
+-- import System.Exit (die) TODO Merlin compatibility 
 
 import Data.List (nub, nubBy, (\\))
 import qualified Data.Set as Set
@@ -48,10 +48,11 @@ untilNoNext s_0 s_1 ts
 
 -- | For all input states finds all states they can get into using any symbol
 stepThrough :: States -> TransRules -> States
-stepThrough st ts = eachStateDests $ Set.unions transFromStates
+stepThrough st ts = eachStateDests $ unions transFromStates
     where fromState s     = Set.filter (\(q,_,_) -> q == s) ts
           transFromStates = Set.map fromState st
           eachStateDests  = Set.map transDst
+          unions          = Set.foldl Set.union Set.empty  -- TODO Merlin compatibility
 
 -- | ----------------------------------------------------------------------
 -- | 2.

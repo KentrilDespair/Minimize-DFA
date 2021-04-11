@@ -14,8 +14,16 @@
 module Types where
 
 import Data.List (intercalate)
-import Data.Set (Set, toList)
+import Data.Set (Set, toList, foldl)
 import Data.Map (Map, empty, insert, (!))
+
+import System.Exit (exitFailure)
+import System.IO
+
+
+-- Module Sytem.Exit @since 4.8.0.0 TODO Merlin compatibility 
+die :: String -> IO a
+die err = hPutStrLn stderr err >> exitFailure
 
 
 -- | An error message
@@ -87,10 +95,10 @@ transList DFA{..} = toList trans
 type TransFnc = Map (State, Symbol) State
 
 toTransFnc :: TransRules -> TransFnc
-toTransFnc = foldl (\macc (p,a,q) -> insert (p,a) q macc) empty
+toTransFnc = Data.Set.foldl (\macc (p,a,q) -> insert (p,a) q macc) empty
 
 toTransFncL :: [Trans] -> TransFnc
-toTransFncL = foldl (\macc (p,a,q) -> insert (p,a) q macc) empty
+toTransFncL = Prelude.foldl (\macc (p,a,q) -> insert (p,a) q macc) empty
 
 -- | Returns the destination state we get into from a state using a symbol
 -- |    Expects fully defined transition function

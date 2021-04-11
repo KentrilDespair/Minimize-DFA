@@ -26,6 +26,7 @@ import Text.Parsec (parse, satisfy, newline,
                     digit, char)
 import Control.Monad ((<=<))
 import Control.Arrow (left)
+import Control.Applicative ((<$>), (<*>), (<$), (<*), (<|>))
 
 
 -- | Converts input string to DFA. Return the DFA is syntactically correct else
@@ -88,12 +89,13 @@ isDFA dfa@DFA{..}
     where 
         isFA       = initial `member` states
                   && final `isSubsetOf` states
-                  && all (inStates . transSrc) trans
-                  && all (inAlphabet . transSymb) trans
-                  && all (inStates . transDst) trans
+                  && all (inStates . transSrc) ts
+                  && all (inAlphabet . transSymb) ts 
+                  && all (inStates . transDst) ts
         inStates   = (`member` states)
         inAlphabet = (`member` alpha)
-        isNotDFA   = isNFA $ toList trans
+        isNotDFA   = isNFA ts
+        ts         = toList trans
 
 -- | Is non-deterministic FA if only one transition rule is ambiguous
 -- |    assumes no duplicate transition rules (is from Set)

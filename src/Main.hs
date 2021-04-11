@@ -11,13 +11,13 @@
 
 module Main (main) where
 
-import Types (DFA)
+import Types (DFA, die)
 import ParseInput (parseDFA)
 import Minimize (minimizeDFA)
 
 import System.Environment (getArgs)
-import System.Exit (die)
 import System.IO (readFile)
+-- import System.Exit (die) TODO Merlin compatibility 
 
 
 -- | Printed on any error related to command line arguments
