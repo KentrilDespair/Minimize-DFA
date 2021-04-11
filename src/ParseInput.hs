@@ -5,7 +5,7 @@
  - Author : Martin Smutny, xsmutn13
  - Date   : 03.03.2021
  -
- - Module for parsing input string into DFA representation
+ - Module for parsing input string into valid DFA representation.
  ------------------------------------------------------------------------------}
 
 {-# LANGUAGE RecordWildCards #-}
@@ -86,7 +86,7 @@ isDFA dfa@DFA{..}
     | isNotDFA    = Left "Non-deterministic Finite Automaton"
     | otherwise   = Right dfa
     where 
-        isFA       = init `member` states
+        isFA       = initial `member` states
                   && final `isSubsetOf` states
                   && all (inStates . transSrc) trans
                   && all (inAlphabet . transSymb) trans

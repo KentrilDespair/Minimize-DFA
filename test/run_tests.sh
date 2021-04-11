@@ -1,4 +1,13 @@
 #!/bin/bash
+################################################################################
+# Project: DKA-2-MKA
+#          (Deterministic Finite Automata to Minimal Finite Automata)
+#          Functional and Logical Programming 2020 / 2021
+# Author : Martin Smutny, xsmutn13
+# Date   : 03.03.2021
+#
+# Main test script
+################################################################################
 
 # Return values to be compared for each test
 # When test is OK then the outputs are compared, 
@@ -183,4 +192,3 @@ do
 done
 
 echo -e "\e[39mTotal: $total ; Failed: $total_err ; OK: $total_ok"
-

@@ -5,14 +5,13 @@
  - Author : Martin Smutny, xsmutn13
  - Date   : 03.03.2021
  -
- - Types module
- -  TODO
+ - Types module, consists of custom types such as:
+ -      State, Alphabet, TransRules, DFA, TransFnc and auxiliary functions
  ------------------------------------------------------------------------------}
 
 {-# LANGUAGE RecordWildCards #-}
 
 module Types where
--- TODO
 
 import Data.List (intercalate)
 import Data.Set (Set, toList)
@@ -64,11 +63,11 @@ transDst (_, _, s) = s
 -- | 'inital':  an initial state
 -- | 'final':    a set of final states
 -- | 'trans':    a set of transitions
-data DFA = DFA { states   :: States
-               , alpha    :: Alphabet
-               , init     :: State
-               , final    :: States
-               , trans    :: TransRules
+data DFA = DFA { states  :: States
+               , alpha   :: Alphabet
+               , initial :: State
+               , final   :: States
+               , trans   :: TransRules
                } deriving (Eq)
 
 -- | List accessors for e.g. list comprehensions
@@ -108,11 +107,8 @@ getDest k m = m ! k
 instance Show DFA where
     show DFA{..} = unlines $ [showList states,
                               toList alpha,
-                              show init,
+                              show initial,
                               showList final
                              ] ++ map showTrans (toList trans)
         where showList = intercalate "," . map show . toList
               showTrans (p, a, q) = show p ++ [',', a, ','] ++ show q
-
-
-

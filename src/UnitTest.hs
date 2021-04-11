@@ -146,19 +146,25 @@ dfa2_suite = DFASuite org reach fdef indist relst reduc
                                                        (3,'a',4),(3,'b',4),(4,'a',5),
                                                        (4,'b',2),(5,'a',2),(5,'b',2)]
 
+-- | Custom Benchmark DFA
+benchSt :: [State]
 benchSt = [0..100]
-benchAl_high = ['a'..'h']
-benchAl_low = "a"
-benchFi = [0..10]
-benchTs_full = [(p,a,q) | p <- benchSt, q <- benchSt, a <- benchAl_high, p <= q]
 
-dfaB_full :: DFA
-dfaB_full = toSetDFA states alpha init final trans 
+benchAl :: [Symbol]
+benchAl = ['a'..'h']
+
+benchFl :: [State]
+benchFl = [0..10]
+benchTs :: [Trans]
+benchTs = [(p,a,q) | p <- benchSt, q <- benchSt, p <= q, a <- benchAl]
+
+dfaBench :: DFA
+dfaBench = toSetDFA states alpha init final trans 
     where states = benchSt
-          alpha  = benchAl_high
+          alpha  = benchAl
           init   = 0
-          final  = benchFi
-          trans  = benchTs_full
+          final  = benchFl
+          trans  = benchTs
 
 
 -- =============================================================================
@@ -166,7 +172,7 @@ dfaB_full = toSetDFA states alpha init final trans
 
 runTests :: Either String String
 runTests 
-    | minimizeDFA dfaB_full == dfaB_full = Left "error bench"
+    | minimizeDFA dfaBench == dfaBench = Left "Benchmark error"
     | otherwise = Right "All Ok"
 
 runSuites :: [Either String String]
@@ -181,7 +187,6 @@ main = do
     mapM_ (either (putStrLn . ("Error: " ++)) putStrLn) runSuites 
     either (putStrLn . ("Error: " ++)) putStrLn runTests
     return ()
-    
 
 --------------------------------------------------------------------------------
 testDFA :: DFASuite -> String -> Either String String
@@ -199,12 +204,11 @@ testDFA suite@DFASuite{..} name
     | resReduced /= reduced 
         = showDiff "Reduced DFA" reduced resReduced
     | otherwise = Right (name ++ "OK")
-   -- | cmpShowDiff "Remove unreachable" reachable resReachable 
     where resReachable = rmUnreachable dfa
           resFDef = toFullyDefinedDFA resReachable
           resIndist0 = indist0Rel (stateList resFDef) (finalList resFDef)
           resIndist = allIndistRel resFDef
-          resRelStates = sort $ statesInRelation (stateList resFDef) (last resIndist) 
+          resRelStates = sort $ statesInRelation (last resIndist) (stateList resFDef) 
           resReduced = toReducedDFA resFDef
           showDiff desc ok bad = Left (name ++ desc ++ "\n" ++ show ok ++ "\n" ++ show bad)
 
@@ -219,8 +223,3 @@ untilSameIndist indist0 indist1 alpha tf
     | indist0 /= indist1 = indist1 : untilSameIndist indist1 indistNext alpha tf
     | otherwise          = [indist1] 
     where indistNext = nextIndist indist1 alpha tf
-
---------------------------------------------------------------------------------
--- | 
-
-

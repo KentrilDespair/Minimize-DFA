@@ -7,44 +7,46 @@ A command line program for minimization of __Deterministic Finite Automaton__ (D
 * GHC, version 8+
 
 ## Compilation and Tests
-Compiling and running the tests is done using the Makefile in the __root
+Compiling and running the tests is done using __Makefile__ in the __root
 directory__ of this project.  
 After successfull compilation the binary is generated in the same directory
 as the Makefile, and is named: __dka-2-mka__ .
 
-1. Compile  
+* Compile  
 $ make
 
-2. Compile and run  
+* Compile and run  
 $ make run  
 *No arguments are supplied, therefore a __usage message__ (or help message) is*
 *printed to STDOUT.*
 
-3. Compile and run tests  
+* Compile and run tests  
 $ make test  
 *After successfull compilation tests are run using a shell script in the __test__ 
-directory. See Section [Tests](#Tests) for more info about tests.*
+directory. See Section [Tests](#Tests) for more information about tests.*
 
-4. Compile and run __Unit tests__
-$ make unit
+* Compile and run __Unit tests__  
+$ make unit  
 *After successfull compilation generates a new binary named __unitTest__ that
 runs unit tests.*
 
 ## Usage
+```
 $ dka-2-mka option [input]
+```
 
 Options:  
-* __-i__  The [input DFA](#Syntax-of-DFA) is pre-parsed, saved into an internal 
+* __-i__  The [input DFA](#DFA-Syntax) is pre-parsed, saved into an internal 
           representation   
           and printed out to STDOUT. Can fail if not syntactically correct.
 * __-t__  Prints the MFA to STDOUT with the same format (syntax) as the input DFA,
           but with additional rules specified in the Section [Output DFA](#Output-MFA).
 
 * __input__  Name of a file, or if not specified, then STDIN is used, that consists 
-             of DFA in a format specified in the Section [Input DFA](#Input DFA). 
+             of DFA in a format specified in the Section [Input DFA](#Input-DFA). 
 
 
-## Syntax of DFA
+## DFA Syntax
 
 An input DFA consists of various attributes on each line separated by newlines:  
 ```
@@ -79,11 +81,11 @@ abc
 2,c,3  
 ```
   
-## Rules
+### Some Rules
 * Only one command line option can be specified at a time (along with possible 
   input file).
 
-### Input DFA
+#### Input DFA
 1. `<states>` is considered a non-empty, finite set, therefore can consist of  
    duplicate states.
 2. `<alphabet>` is considered a non-empty, finite set, therefore can consist of
@@ -95,7 +97,7 @@ abc
 6. Any number of ending newlines (after the last transition rule, or after the 
     `<final states>`) is __ignored__.
 
-### Output MFA 
+#### Output MFA 
 1. `<states>` are sorted, continously ascending from zero.
 2. Symbols of `<alphabet>` are sorted.
 3. `<initial state>` is always 0.
@@ -107,18 +109,9 @@ abc
    than any previous (in any rule above) __highest state__ (i.e. having the largest 
    value so far).
 
-## Conversion in general
-The final minimal DFA (i.e. RDFA with total transition function) is created
-from DFA by: 1) eliminating unreachable states, 2) converting it to fully 
-defined DFA, 3) converting it to Reduced DFA.
-
-1. Elimination of unreachable states
-
-
-
-2. Conversion to Fully Defined DFA
-3. Conversion to Reduced DFA
-
+## Conversion in general and Implementation detail
+The final minimal DFA (i.e. RDFA with total transition function) is constructed 
+from DFA by: 
 
 1. Elimination of unreachable states
 2. Conversion to "fully defined" DFA (i.e. w/ total transition function)
@@ -126,8 +119,54 @@ defined DFA, 3) converting it to Reduced DFA.
       by a so-called "SINK" state
 3. Conversion to "reduced" DFA using equivalence theorem (classes)
     - If a "SINK" state exists (i.e. a state that is not final, with transitions
-      only to itself), then it is removed.
+      only to itself), then it is kept (under the option "-t").
 
+### Implementation Details
+
+#### 1. Parsing of the input DFA into the custom DFA data type
+    Uses Text.Parsec module for text parsing and functions from Data.Set 
+    container to check the validity of the input DFA according to its
+    [syntax](#DFA-Syntax).
+
+#### 2. Elimination of unreachable states
+    Starting from the set of states s_1 consisting only of initial state, 
+    filters through transition rules and adds all the possible destination 
+    states to the set s_1, until the previous iteration of s_1 equals the 
+    new iteration of s_1.  
+  
+    Uses functions mainly of the Data.Set container.
+
+#### 3. Conversion to Fully Defined DFA
+    Makes a list of transition rules to sink state called toSinkTrans using
+    converted transition rules (Data.Set) to a transition function transFnc
+    (Data.Map) from states whoose transition function is not defined for any
+    symbol of the alphabet.   
+    If the list toSinkTrans is empty then the DFA is fully defined, else
+    the sink state is added (highest state + 1) along with the toSinkTrans
+    to the existing transition rules.
+
+    Uses functions of the Data.Map and Data.Set container.
+
+#### 4. Conversion to Reduced DFA
+    If the input DFA (should be fully defined) to function "toReducedDFA" 
+    consists of only one state (the initial state), then a fully defined
+    DFA is constructed using only this state (relabeled to "0"),  
+    else the reduction consists of steps:  
+
+    1. Relation of indistinguishable states "indistRel" is constructed -
+    a list of pairs of states ([(p,q)]) using transition function (Data.Map).
+
+    2. The relation of indistinguishable states "indistRel" is converted to
+    a list of states in relation "statesInRel", which corresponds to equivalence
+     classes, e.g. [[1,6],[2,5],[3,4]].
+
+    3. Each equivalence class (list of states in the "statesInRel") is labelled
+    in the order of the states visited starting from the initial state. The result
+    of this function "relabelInOrder" is a pair of mappings:
+    a) Each state to its corresponding equivalence class label - "st2eq"
+    b) Each equivalence class label to the first state in the class - "eq2st"
+
+    4. Uses both mappings "st2eq", "eq2st" to construct the reduced DFA.
 
 ## TODO
 Add minimization tests to all OK 

@@ -69,5 +69,3 @@ printDFA = putStr . show
 -- | Prints the minimized DFA to STDOUT
 printMDFA :: DFA -> IO ()
 printMDFA = putStr . show . minimizeDFA
-
-

@@ -34,12 +34,12 @@ minimizeDFA = {- rmSink . -} toReducedDFA . toFullyDefinedDFA . rmUnreachable
 -- | Elimination of unreachable states
 rmUnreachable :: DFA -> DFA
 rmUnreachable dfa@DFA{..} = 
-        DFA reachableStates alpha init reachableFinal reachableTrans 
-    where reachableStates = untilNoNext Set.empty (Set.singleton init) trans
+        DFA reachableStates alpha initial reachableFinal reachableTrans 
+    where reachableStates = untilNoNext Set.empty (Set.singleton initial) trans
           reachableTrans  = Set.filter (\(q,_,_) -> q `Set.member` reachableStates) trans
           reachableFinal  = final `Set.intersection` reachableStates
 
--- | Finds all states we can get into from initial states
+-- | Finds all states we can get into from the initial state
 untilNoNext :: States -> States -> TransRules -> States
 untilNoNext s_0 s_1 ts
     | s_0 == s_1 = s_1
@@ -61,7 +61,7 @@ stepThrough st ts = eachStateDests $ Set.unions transFromStates
 toFullyDefinedDFA :: DFA -> DFA
 toFullyDefinedDFA dfa@DFA{..} = if null toSinkTrans
         then dfa
-        else DFA (sink `Set.insert` states) alpha init final totalTrans 
+        else DFA (sink `Set.insert` states) alpha initial final totalTrans 
     where sink        = Set.findMax states + 1
           -- TODO test
           --totalTrans  = trans `Set.union` Set.fromList (toSinkTrans ++ sinkTrans)
@@ -82,23 +82,24 @@ notExistTrans k m = k `Map.notMember` m
 -- |    where no state is unreachable, and no two states are indistinguishable
 -- | 
 toReducedDFA :: DFA -> DFA
-toReducedDFA dfa@DFA{..} = if Set.size states < 2 
-                           then DFA (Set.singleton newInit) alpha newInit
-                                    oneFinal
-                                    (Set.fromList [(newInit,a,newInit) | a <- al])
-                           else DFA (Set.fromList newStates) alpha newInit 
-                                    newFinal (Set.fromList newTrans)
+toReducedDFA dfa@DFA{..} = if Set.size states < 2
+                           then oneStateDFA dfa newInit
+                           else DFA (Set.fromList newStates) 
+                                    alpha 
+                                    newInit 
+                                    newFinal
+                                    (Set.fromList newTrans)
     where newStates   = [0..totalEqCls]
           newInit     = 0
           newFinal    = Set.map getEq final
           newTrans    = [(eq,a,eqP) | eq <- newStates, a <- al, 
-                                      let dst = getDest ((getSt eq),a) transFnc,
+                                      let dst = getDest (getSt eq,a) transFnc,
                                       let eqP = getEq dst]
           totalEqCls  = length statesInRel -1
-          statesInRel = statesInRelation st indistRel
+          statesInRel = statesInRelation indistRel st
           indistRel   = untilIndist [] (indist0Rel st fs) al transFnc
     -- Defined mappings between states and equiv. classes
-          (st2eq, eq2st) = relabelInOrder init ts statesInRel
+          (st2eq, eq2st) = relabelInOrder initial ts statesInRel
           getEq s     = st2eq Map.! s
           getSt e     = eq2st Map.! e
     -- List variants
@@ -107,15 +108,24 @@ toReducedDFA dfa@DFA{..} = if Set.size states < 2
           fs          = finalList dfa
           ts          = transList dfa
           transFnc    = toTransFncL ts
-          oneFinal = if Set.null final then final else (Set.singleton newInit)
 
 --------------------------------------------------------------------------------
--- | Returns a list of lists of indistinguishable states 
--- |    e.g. {[1,6],[2,5],[3,4]}
+-- | Returns 'Reduced DFA' that has only ONE state - the initial state
+oneStateDFA :: DFA -> State -> DFA
+oneStateDFA dfa@DFA{..} init = DFA (Set.singleton init) 
+                                   alpha
+                                   init
+                                   oneFinal
+                                   (Set.fromList [(init,a,init) | a <- al])
+    where oneFinal = if Set.null final then final 
+                                       else Set.singleton init
+          al = alphaList dfa
+
 -- TODO better, return set vs nub
--- TODO input what are those
-statesInRelation :: [State] -> [StatePair] -> [[State]]
-statesInRelation st indist = nub [map snd $ filter inRelation indist | q <- st, 
+-- | Converts the indistinguishable relation ([(p,q)]) to a list of lists of 
+-- |    states in relation, e.g. [[1,6],[2,5],[3,4]]
+statesInRelation :: [StatePair] -> [State] -> [[State]]
+statesInRelation indist st = nub [map snd $ filter inRelation indist | q <- st, 
                                         let inRelation = \(p,_) -> p == q]
 
 -- | Indistinguishable relation for 'k = 0', on pairs of states (relation of equivalence)
@@ -142,24 +152,21 @@ destPairs p q al m = [(d1, d2) | a <- al, let d1 = getDest (p,a) m,
                                           let d2 = getDest (q,a) m]
 
 --------------------------------------------------------------------------------
--- |  TODO COMMENT
--- | what are the params, what is returned
-relabelInOrder :: State -> [Trans] -> [[State]] -> (Map.Map State State, Map.Map State State)
+-- | Constructs mappings from the ordered equivalence classes "eqClsOrdered"
+-- | Returns mapping: State to Equivalence class label
+-- |                  Equivalence class label to first State in the class
+relabelInOrder :: State -> [Trans] -> [[State]] -> (Map.Map State State, 
+                                                    Map.Map State State)
 relabelInOrder init ts stInRel = (m, mapEq2States m)
     where m = foldl (flip mapStates2Eq) Map.empty eqClsOrdered
           eqClsOrdered = toEqInorder 0 [findIndist init stInRel] ts stInRel
 
--- | Relables transition rules NO WE RELABEL EQ CLASSES using equivalence classes:
--- |    each state is in starting from initial state
--- |    and its indistinguishable states
--- | TODO
--- toDestInorder init [init] {[1,6], [2,5], [3,4]}
--- [1,6,2, 1,5, 5,4, ], LOOP
--- [1,2,4] not already added a neni ve stejne skupine
--- What are ethe params?
--- How does it work?
--- | i - increment, which 
--- | 
+-- | Relabels the equivalence classes (each list in "relst") in the order
+-- |    how the states are visited from the intiial state "init" using a
+-- |    list of transitions TODO transFnc TODO
+-- | Makes sure that the order of the classes is preserved, only unique
+-- |    classes are present, and ends when all classes were visited 
+-- |    (don't have to visit all states).
 toEqInorder :: Int -> [[State]] -> [Trans] -> [[State]] -> [[State]]
 toEqInorder i indist ts relst
     | i >= length indist = indist
@@ -171,10 +178,9 @@ toEqInorder i indist ts relst
           inAnyEq s = any (s `elem`) indist
           curState  = head $ indist !! i
 
-
--- Not ordered! BUT UNIQUE
+-- | Returns destination states of state "s" in list of transition rules
+-- |    Must be unique and the order must be preserved as visited (NOT sorted!)
 -- TODO use map??
--- TOOD better description, it is not just getDests! or is it?
 getDests :: State -> [Trans] -> [State]
 getDests s ts = nub $ map transDst $ filter (\(q,_,_) -> q == s) ts
 
@@ -206,7 +212,7 @@ mapEq2States = Map.fromList . map flipPair . nubBy firstInEq . Map.assocs
 -- |    - a non-final state with transition rules only to itself
 rmSink :: DFA -> DFA
 rmSink dfa@DFA{..} = if notExistsSink then dfa
-                                      else DFA newStates alpha init final newTrans
+                                      else DFA newStates alpha initial final newTrans
     where (sinkState, sinkRules) = findSink (st \\ fs) (Set.size alpha) trans
           notExistsSink = Set.null $ sinkRules
           newStates     = Set.delete sinkState states
