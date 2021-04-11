@@ -82,7 +82,10 @@ notExistTrans k m = k `Map.notMember` m
 -- |    where no state is unreachable, and no two states are indistinguishable
 -- | 
 toReducedDFA :: DFA -> DFA
-toReducedDFA dfa@DFA{..} = if Set.size states < 2 then dfa 
+toReducedDFA dfa@DFA{..} = if Set.size states < 2 
+                           then DFA (Set.singleton newInit) alpha newInit
+                                    oneFinal
+                                    (Set.fromList [(newInit,a,newInit) | a <- al])
                            else DFA (Set.fromList newStates) alpha newInit 
                                     newFinal (Set.fromList newTrans)
     where newStates   = [0..totalEqCls]
@@ -104,6 +107,7 @@ toReducedDFA dfa@DFA{..} = if Set.size states < 2 then dfa
           fs          = finalList dfa
           ts          = transList dfa
           transFnc    = toTransFncL ts
+          oneFinal = if Set.null final then final else (Set.singleton newInit)
 
 --------------------------------------------------------------------------------
 -- | Returns a list of lists of indistinguishable states 
@@ -138,33 +142,44 @@ destPairs p q al m = [(d1, d2) | a <- al, let d1 = getDest (p,a) m,
                                           let d2 = getDest (q,a) m]
 
 --------------------------------------------------------------------------------
--- | 
+-- |  TODO COMMENT
+-- | what are the params, what is returned
 relabelInOrder :: State -> [Trans] -> [[State]] -> (Map.Map State State, Map.Map State State)
 relabelInOrder init ts stInRel = (m, mapEq2States m)
     where m = foldl (flip mapStates2Eq) Map.empty eqClsOrdered
           eqClsOrdered = toEqInorder 0 [findIndist init stInRel] ts stInRel
 
--- | Relables transition rules using equivalence classes that each state is in
--- |    starting from initial state
+-- | Relables transition rules NO WE RELABEL EQ CLASSES using equivalence classes:
+-- |    each state is in starting from initial state
+-- |    and its indistinguishable states
+-- | TODO
 -- toDestInorder init [init] {[1,6], [2,5], [3,4]}
 -- [1,6,2, 1,5, 5,4, ], LOOP
 -- [1,2,4] not already added a neni ve stejne skupine
 -- What are ethe params?
 -- How does it work?
+-- | i - increment, which 
+-- | 
 toEqInorder :: Int -> [[State]] -> [Trans] -> [[State]] -> [[State]]
 toEqInorder i indist ts relst
     | i >= length indist = indist
     | otherwise          = toEqInorder (i+1) (indist ++ newIndist) ts relst
-    where newIndist = map (`findIndist` relst) newSt
+    where newIndist = nub $ map (`findIndist` relst) newSt
           newSt     = filter isUniq (getDests curState ts)
-          isUniq s  = not $ any (s `elem`) indist
+          -- States not already in indist
+          isUniq s  = not $ inAnyEq s
+          inAnyEq s = any (s `elem`) indist
           curState  = head $ indist !! i
 
+
 -- Not ordered! BUT UNIQUE
+-- TODO use map??
+-- TOOD better description, it is not just getDests! or is it?
 getDests :: State -> [Trans] -> [State]
 getDests s ts = nub $ map transDst $ filter (\(q,_,_) -> q == s) ts
 
--- | Returns the indistinguishable states from the state
+-- | Returns all the indistinguishable states from this state
+-- |    in the relation of indistinguishable states
 findIndist :: State -> [[State]] -> [State]
 findIndist _ [] =  error "Each state should exist"
 findIndist s (st:stRels) = if s `elem` st then st 
@@ -210,5 +225,3 @@ findSink (s:st) alLen tr = if Set.size sinkRules == alLen then (s, sinkRules)
                                                           else findSink st alLen tr
     where sinkRules = Set.filter (\(p, _, q) -> p == q && p == s) tr
     -- where sinkRules = [t | t@(p, _, q) <- tr, p == q && p == s]
-
-

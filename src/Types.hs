@@ -61,7 +61,7 @@ transDst (_, _, s) = s
 -- | Deterministic Finite Automaton consists of 
 -- | 'states':   a finite, non-empty set of states 
 -- | 'alphabet': a finite, non-empty set of input symbols
--- | 'initial':  an initial state
+-- | 'inital':  an initial state
 -- | 'final':    a set of final states
 -- | 'trans':    a set of transitions
 data DFA = DFA { states   :: States

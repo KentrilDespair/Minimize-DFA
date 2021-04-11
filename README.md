@@ -141,6 +141,22 @@ TODO write doc - * toReduced uses table k -> v ...
 TODO SORT TRANSRULES only using src and symb!!
 31  -- TODO dfa@ not needed if not used!!
 Option to remove sink
+rename to initial from init
+
+constructor for States??
+add test and also one state
+  2,3
+  1 c
+  2 2
+  3 3,2
+  4 2,c,2
+  5 3,c,3
+
+  0
+  1 c
+  2 0
+  3 0
+  4 0,c,0
 
 
 1. Make rules:

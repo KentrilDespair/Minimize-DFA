@@ -4,6 +4,7 @@ unitTest
 *.swo
 test/*.temp
 test/*.err
+src/debugging.txt
 
 dist
 dist-*
